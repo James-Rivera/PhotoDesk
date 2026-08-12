@@ -18,6 +18,7 @@ import {
   createPassportRequest,
   millimetersToPoints,
   maximumSmallCopies,
+  smallCopiesBesideBigRows,
   type LayoutRequest,
   type PresetId,
 } from "@/lib/layout";
@@ -89,10 +90,28 @@ export function TemplateFoundation() {
     small: { width: ONE_BY_ONE_POINTS, height: ONE_BY_ONE_POINTS },
     bigQuantity: counts.big,
   }), [counts.big, passport.height, passport.width]);
-  const layout = useMemo(() => preset === "passport" && tab === "presets"
-    ? arrangeMixedShelves({ ...passportMixedBase, smallQuantity: counts.small })
-    : arrangeOnPage(request), [counts.small, passportMixedBase, preset, request, tab]);
-  const passportSmallCapacity = useMemo(() => maximumSmallCopies(passportMixedBase), [passportMixedBase]);
+  const normalMixedBase = useMemo(() => ({
+    page: A4_PAGE,
+    margins: { top: millimetersToPoints(2), right: millimetersToPoints(2), bottom: millimetersToPoints(2), left: millimetersToPoints(2) },
+    big: { width: TWO_BY_TWO_POINTS, height: TWO_BY_TWO_POINTS },
+    small: { width: ONE_BY_ONE_POINTS, height: ONE_BY_ONE_POINTS },
+    bigQuantity: counts.big,
+  }), [counts.big]);
+  const layout = useMemo(() => {
+    if (preset === "passport" && tab === "presets") return arrangeMixedShelves({ ...passportMixedBase, smallQuantity: counts.small });
+    if (preset === "cjnet-normal" && tab === "presets") return arrangeMixedShelves({ ...normalMixedBase, smallQuantity: counts.small });
+    return arrangeOnPage(request);
+  }, [counts.small, normalMixedBase, passportMixedBase, preset, request, tab]);
+  const activeMixedBase = preset === "cjnet-normal" ? normalMixedBase : passportMixedBase;
+  const gapSmallCapacity = useMemo(() => smallCopiesBesideBigRows(activeMixedBase), [activeMixedBase]);
+  const totalSmallCapacity = useMemo(() => maximumSmallCopies(activeMixedBase), [activeMixedBase]);
+  const gapCopiesAvailable = Math.max(0, gapSmallCapacity - counts.small);
+  const totalCopiesAvailable = Math.max(0, totalSmallCapacity - counts.small);
+  const fillOffer = gapCopiesAvailable >= 2
+    ? { add: gapCopiesAvailable, target: gapSmallCapacity, fillsGap: true }
+    : totalCopiesAvailable >= 2
+      ? { add: totalCopiesAvailable, target: totalSmallCapacity, fillsGap: false }
+      : null;
   const photoBackground = backgroundChoice === "transparent" ? null : backgroundChoice === "white" ? "#ffffff" : backgroundChoice === "blue" ? "#dbeafe" : customBackground;
   const canOutput = Boolean(photo && layout.fits && layout.placed.length > 0 && !generating);
   const activeDefinition = PRESETS.find((item) => item.id === preset);
@@ -227,7 +246,7 @@ export function TemplateFoundation() {
           <div className="mt-4 grid grid-cols-2 rounded-[9px] bg-[var(--ground)] p-[3px]"><button type="button" onClick={() => setTab("presets")} className={`h-[34px] rounded-[7px] font-semibold ${tab === "presets" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)]"}`}>Presets</button><button type="button" onClick={() => { setTab("custom"); setPreset("custom"); }} className={`h-[34px] rounded-[7px] font-semibold ${tab === "custom" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)]"}`}>Custom size</button></div>
 
           {tab === "presets" ? <PresetControls preset={preset} counts={counts} passport={passport} onPreset={selectPreset} onCount={adjustCount} onPassport={setPassport} onUsual={() => setCounts({ big: 4, small: 6 })} /> : <CustomControls custom={custom} onChange={setCustom} />}
-          {preset === "passport" && tab === "presets" && layout.fits && passportSmallCapacity - counts.small >= 2 && <div className="mt-3 rounded-lg border border-[#eedf8a] bg-[#fffcea] p-3 text-[12px] leading-5"><strong>Use the empty paper</strong><p className="text-[var(--ink-2)]">Room for {passportSmallCapacity - counts.small} more 1×1 copies around the passport rows. Sayang naman, fill it up?</p><button type="button" onClick={() => setCounts((current) => ({ ...current, small: passportSmallCapacity }))} className="mt-2 h-8 rounded-md bg-[var(--brand)] px-3 font-bold">Add {passportSmallCapacity - counts.small} × 1×1</button></div>}
+          {(preset === "passport" || preset === "cjnet-normal") && tab === "presets" && layout.fits && fillOffer && <div className="mt-3 rounded-lg border border-[#eedf8a] bg-[#fffcea] p-3 text-[12px] leading-5"><strong>Use the empty paper</strong><p className="text-[var(--ink-2)]">{fillOffer.fillsGap ? `The unfinished ${preset === "passport" ? "passport" : "2×2"} row has room for ${fillOffer.add} more 1×1 copies.` : `The remaining A4 paper holds ${fillOffer.add} more 1×1 copies.`} Sayang naman, fill it up?</p><button type="button" onClick={() => setCounts((current) => ({ ...current, small: fillOffer.target }))} className="mt-2 h-8 rounded-md bg-[var(--brand)] px-3 font-bold">Add {fillOffer.add} × 1×1</button></div>}
 
           {!layout.fits && <div className="mt-3 rounded-lg border border-[#efc0b2] bg-[#fdf0ec] p-3 text-[12px] leading-5 text-[#8c2410]"><strong className="flex items-center gap-2"><AlertTriangle size={15} /> Photos do not fit on A4</strong><p className="mt-1">{layout.overflow.length} requested {layout.overflow.length === 1 ? "copy" : "copies"} cannot fit. Reduce the quantities before printing.</p><button type="button" onClick={reduceToFit} className="mt-2 font-bold underline">Reduce to {layout.placed.length} copies</button></div>}
 

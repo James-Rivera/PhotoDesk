@@ -82,6 +82,26 @@ export function maximumSmallCopies(request: Omit<MixedShelfRequest, "smallQuanti
   return probe.placed.filter((item) => item.sourceKey === (request.smallSourceKey ?? "small")).length;
 }
 
+export function smallCopiesBesideBigRows(request: Omit<MixedShelfRequest, "smallQuantity">): number {
+  validate({ ...request, smallQuantity: 0 });
+  const contentWidth = Math.max(0, request.page.width - request.margins.left - request.margins.right);
+  const contentHeight = Math.max(0, request.page.height - request.margins.top - request.margins.bottom);
+  const bigPerRow = Math.floor(contentWidth / request.big.width);
+  const bigRowsThatFit = Math.floor(contentHeight / request.big.height);
+  if (bigPerRow <= 0 || bigRowsThatFit <= 0) return 0;
+
+  let remainingBig = request.bigQuantity;
+  let capacity = 0;
+  for (let row = 0; row < bigRowsThatFit && remainingBig > 0; row += 1) {
+    const count = Math.min(remainingBig, bigPerRow);
+    const smallColumns = Math.floor((contentWidth - count * request.big.width) / request.small.width);
+    const smallRows = Math.floor(request.big.height / request.small.height);
+    capacity += smallColumns * smallRows;
+    remainingBig -= count;
+  }
+  return capacity;
+}
+
 function validate(request: MixedShelfRequest) {
   const values = [request.page.width, request.page.height, request.big.width, request.big.height, request.small.width, request.small.height, request.bigQuantity, request.smallQuantity, request.margins.top, request.margins.right, request.margins.bottom, request.margins.left];
   if (values.some((value) => !Number.isFinite(value) || value < 0)) throw new RangeError("Mixed layout measurements and quantities must be finite and non-negative.");
