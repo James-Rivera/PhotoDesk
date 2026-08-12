@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --ground: #f5f1e8;
+  --surface: #ffffff;
+  --surface-warm: #fffdf4;
+  --brand: #f4d400;
+  --brand-hover: #e6c700;
+  --brand-pressed: #d8bb00;
+  --brand-off: #efe7c4;
+  --brand-tint: #fbf3c2;
+  --ink: #171717;
+  --ink-2: #5c574e;
+  --ink-3: #8b857a;
+  --border: #d9d3c4;
+  --border-soft: #e4dfd2;
+  --divider: #efeae0;
+  --ok: #2f6e3b;
+  --warn: #7a5300;
+  --danger: #b5220c;
+  --cut-guide: #b9b2a2;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--ground);
+  font-family: "Satoshi", "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+}
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled) { cursor: pointer; }
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.measurement { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+.checkerboard {
+  background-color: white;
+  background-image: linear-gradient(45deg, #e4dfd2 25%, transparent 25%), linear-gradient(-45deg, #e4dfd2 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e4dfd2 75%), linear-gradient(-45deg, transparent 75%, #e4dfd2 75%);
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  background-size: 18px 18px;
+}

@@ -1,0 +1,5 @@
+import { PageHeading } from "@/components/page-heading";
+
+export default function LibraryPage() {
+  return <div className="p-5"><PageHeading eyebrow="Private staff library" title="Customer Library" description="Find and reuse saved customer photos. This is a compact reprint library, not a customer-management system." /><div className="mt-6 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-white"><div className="border-b border-[var(--border-soft)] p-3.5"><input disabled placeholder="Search customers by name" className="h-[42px] w-full rounded-lg border border-[var(--border)] px-3 opacity-60" /></div><div className="grid min-h-[320px] place-items-center px-6 py-12 text-center"><div><span className="mx-auto grid size-11 place-items-center rounded-full bg-[var(--divider)] text-[20px]">⌕</span><p className="mt-4 text-[16px] font-bold">No customers saved yet</p><p className="mt-2 text-[13px] text-[var(--ink-2)]">Supabase records and private photo storage arrive in milestone 4.</p></div></div></div></div>;
+}
