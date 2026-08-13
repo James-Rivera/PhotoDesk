@@ -31,6 +31,7 @@ import { useFeedback } from "@/components/feedback-provider";
 import { LibraryPhotoPickerDialog } from "@/components/library-photo-picker-dialog";
 import { buildPdfDownloadName } from "@/lib/pdf/download-name";
 import { getPrintHelperHealth, openNativePrintDialog, pairPrintHelper, PrintHelperPairingError, type PrintHelperHealth } from "@/lib/printing/print-helper";
+import { NativePrintDialog } from "@/components/native-print-dialog";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -91,7 +92,13 @@ export function TemplateFoundation() {
   useEffect(() => () => { if (smallPhoto) URL.revokeObjectURL(smallPhoto.url); }, [smallPhoto]);
   useEffect(() => { if (error) toast(error, { tone: "error" }); }, [error, toast]);
   useEffect(() => { if (notice) toast(notice, { tone: "success" }); }, [notice, toast]);
-  useEffect(() => { void refreshPrintHelper(); }, []);
+  useEffect(() => {
+    let active = true;
+    void getPrintHelperHealth().then((health) => {
+      if (active) setPrintHelper(health);
+    });
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     const transfer = workingPhoto.photo;
     if (!transfer) return;
@@ -242,6 +249,37 @@ export function TemplateFoundation() {
   }
 
   async function printPdf() {
+    setGenerating("print"); setError(null);
+    try {
+      const bytes = await makePdf();
+      await openNativePrintDialog(Uint8Array.from(bytes));
+      setShowPrintGuide(false);
+      setNotice("Windows print dialog opened. Select Epson, then open Preferences for photo-paper quality.");
+    } catch (cause) {
+      if (cause instanceof PrintHelperPairingError) {
+        setPrintHelper((current) => ({ ...current, paired: false }));
+        setError(cause.message);
+      } else setError(pdfError(cause));
+    } finally { setGenerating(null); }
+  }
+
+  async function refreshPrintHelper() {
+    setPrintHelper(await getPrintHelperHealth());
+  }
+
+  async function pairHelper() {
+    setGenerating("print"); setError(null);
+    try {
+      await pairPrintHelper(pairingCode);
+      setPairingCode("");
+      await refreshPrintHelper();
+      setNotice("This computer is paired with CJNET Print Helper.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The helper could not be paired.");
+    } finally { setGenerating(null); }
+  }
+
+  async function browserPrintFallback() {
     setShowPrintGuide(false);
     const printWindow = window.open("", "_blank");
     if (!printWindow) { setError("Printing was blocked. Allow pop-ups for this page, then try again."); return; }
@@ -253,7 +291,7 @@ export function TemplateFoundation() {
       printWindow.location.href = url;
       window.setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1200);
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setNotice("Print dialog opened. Use A4, Actual Size / 100%, then open Epson Printer Properties for photo-paper quality.");
+      setNotice("Browser print dialog opened. Use A4 and Actual Size / 100%.");
     } catch (cause) { printWindow.close(); setError(pdfError(cause)); } finally { setGenerating(null); }
   }
 
@@ -318,7 +356,7 @@ export function TemplateFoundation() {
       <footer className="sticky bottom-0 z-10 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-t border-[var(--border-soft)] bg-white px-5 py-3"><div className="flex max-w-2xl items-start gap-2 text-[12.5px] leading-5 text-[var(--ink-2)]"><Info size={16} strokeWidth={1.9} className="mt-0.5 shrink-0" /><p>Print on A4 photo paper · set Scale to <mark className="bg-[var(--brand-tint)] px-1 font-bold text-[var(--ink)]">Actual Size (100%)</mark><br /><strong className="text-[var(--warn)]">Huwag piliin ang &apos;Fit to page&apos; — mababawasan ang sukat.</strong></p></div><div className="flex items-center gap-2"><button type="button" disabled={!photo} onClick={() => void requestReset()} className="flex h-10 items-center gap-2 rounded-lg px-3 font-semibold disabled:opacity-45"><RotateCcw size={15} /> Reset</button><button type="button" disabled={!canOutput} onClick={() => void downloadPdf()} className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] px-3 font-semibold disabled:cursor-not-allowed disabled:opacity-45">{generating === "download" ? <LoaderCircle className="animate-spin" size={15} /> : <Download size={15} />} {generating === "download" ? "Preparing…" : "Download PDF"}</button><button type="button" disabled={!canOutput} onClick={() => setShowPrintGuide(true)} className="flex h-11 items-center gap-2 rounded-lg bg-[var(--brand)] px-5 text-[15px] font-bold hover:bg-[var(--brand-hover)] active:bg-[var(--brand-pressed)] disabled:cursor-not-allowed disabled:bg-[var(--brand-off)] disabled:text-[#9a9484]"><Printer size={17} /> Print</button></div></footer>
 
       {cropTarget && cropPhoto && <CropDialog photo={cropPhoto} crop={crops[cropTarget]} size={cropSize} onCancel={() => setCropTarget(null)} onApply={(value) => { const target = cropTarget; setCrops((current) => ({ ...current, [target]: value })); setCropTarget(null); setNotice(`${cropSize.label} crop applied.`); }} />}
-      {showPrintGuide && <PrinterSettingsDialog generating={generating === "print"} onCancel={() => setShowPrintGuide(false)} onDownload={() => { setShowPrintGuide(false); void downloadPdf(); }} onPrint={() => void printPdf()} />}
+      {showPrintGuide && <NativePrintDialog generating={generating === "print"} helper={printHelper} pairingCode={pairingCode} onPairingCode={setPairingCode} onRefresh={() => void refreshPrintHelper()} onPair={() => void pairHelper()} onCancel={() => setShowPrintGuide(false)} onDownload={() => { setShowPrintGuide(false); void downloadPdf(); }} onPrint={() => void printPdf()} onBrowserPrint={() => void browserPrintFallback()} />}
       {showSaveDialog && photo && <SavePhotoToLibraryDialog file={photo.file} onClose={() => setShowSaveDialog(false)} onSaved={(customerName) => { setShowSaveDialog(false); setShowSavePrompt(false); setNotice(`${photo.file.name} was saved privately for ${customerName}.`); }} />}
       {showLibraryPicker && <LibraryPhotoPickerDialog onClose={() => setShowLibraryPicker(false)} onChoose={acceptLibraryPhoto} />}
     </div>
@@ -344,7 +382,7 @@ function CropDialog({ photo, crop, size, onApply, onCancel }: { photo: LoadedPho
   return <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(23,23,23,.42)] p-5" role="dialog" aria-modal="true" aria-labelledby="crop-title"><div className="w-full max-w-[900px] overflow-hidden rounded-xl bg-white shadow-[0_18px_40px_rgba(23,23,23,.22)]"><header className="flex h-[54px] items-center gap-3 border-b border-[var(--border-soft)] px-5"><h2 id="crop-title" className="text-[17px] font-bold">Adjust crop</h2><span className="rounded-full border border-[#eedf8a] bg-[var(--brand-tint)] px-2.5 py-1 text-[11px] font-bold">Output frame · {size.label}</span><button type="button" onClick={onCancel} className="ml-auto grid size-8 place-items-center rounded-md hover:bg-[#faf7ef]" aria-label="Close crop dialog" title="Close"><X size={17} /></button></header><div className="grid md:grid-cols-[1fr_288px]"><section className="grid place-items-center bg-[var(--ground)] p-[22px]"><div><p className="mb-3 text-center text-[12.5px] text-[var(--ink-2)]">This is exactly what prints · drag to move</p><div onPointerDown={(event) => { pointer.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (!pointer.current) return; const rect = event.currentTarget.getBoundingClientRect(); const dx = event.clientX - pointer.current.x; const dy = event.clientY - pointer.current.y; pointer.current = { x: event.clientX, y: event.clientY }; setValue((current) => ({ ...current, dx: clamp(current.dx + (dx / rect.width) * 100 / (current.zoom / 100), -60, 60), dy: clamp(current.dy + (dy / rect.height) * 100 / (current.zoom / 100), -60, 60) })); }} onPointerUp={() => { pointer.current = null; }} className="relative max-h-[424px] max-w-[384px] touch-none overflow-hidden border border-[var(--cut-guide)] bg-white active:cursor-grabbing" style={{ width: size.width >= size.height ? 384 : Math.round(384 * size.width / size.height), aspectRatio: `${size.width}/${size.height}`, cursor: "grab" }}>{ }<img src={photo.url} alt="Crop preview" draggable={false} className="h-full w-full select-none" style={cropTransformStyle(value)} /><span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[rgba(23,23,23,.78)] px-2 py-1 text-[11px] font-bold text-white">Drag to move · slider to zoom</span></div></div></section><aside className="border-t border-[var(--border-soft)] p-5 md:border-t-0 md:border-l"><label className="block font-bold">Photo fit</label><div className="mt-2 grid grid-cols-2 rounded-[9px] bg-[var(--ground)] p-[3px]"><button type="button" onClick={() => setValue((current) => ({ ...current, fitMode: "cover" }))} className={`h-[34px] rounded-[7px] font-semibold ${value.fitMode === "cover" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)]"}`}>Fill frame</button><button type="button" onClick={() => setValue((current) => ({ ...current, fitMode: "contain" }))} className={`h-[34px] rounded-[7px] font-semibold ${value.fitMode === "contain" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)]"}`}>Whole photo</button></div><label className="mt-5 block"><span className="flex items-center justify-between font-bold">Zoom <span className="measurement text-[11.5px]">{value.zoom}%</span></span><input type="range" min={100} max={300} value={value.zoom} onChange={(event) => setValue((current) => ({ ...current, zoom: Number(event.target.value) }))} className="mt-2 w-full accent-black" /></label><button type="button" onClick={() => setValue((current) => ({ ...current, dx: 0, dy: 0 }))} className="mt-5 h-[38px] w-full rounded-lg border border-[var(--border)] font-semibold">Centre the photo</button><button type="button" onClick={() => setValue(DEFAULT_CROP)} className="mt-2 h-[38px] w-full rounded-lg font-semibold hover:bg-[#faf7ef]">Reset crop</button><div className="mt-5 rounded-lg border border-[#f0e3bc] bg-[#fffaed] p-3 text-[12px] leading-5 text-[var(--ink-2)]">The source photo stays unchanged. This crop is applied only when previewing and printing.</div><div className="mt-5 flex gap-2"><button type="button" onClick={onCancel} className="h-11 flex-1 rounded-lg border border-[var(--border)] font-semibold">Cancel</button><button type="button" onClick={() => onApply(value)} autoFocus className="h-11 flex-1 rounded-lg bg-[var(--brand)] font-bold hover:bg-[var(--brand-hover)]">Apply crop</button></div></aside></div></div></div>;
 }
 
-function PrinterSettingsDialog({ generating, onCancel, onDownload, onPrint }: { generating: boolean; onCancel: () => void; onDownload: () => void; onPrint: () => void }) {
+export function PrinterSettingsDialog({ generating, onCancel, onDownload, onPrint }: { generating: boolean; onCancel: () => void; onDownload: () => void; onPrint: () => void }) {
   return <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(23,23,23,.42)] p-5" role="dialog" aria-modal="true" aria-labelledby="printer-settings-title"><div className="w-full max-w-[620px] overflow-hidden rounded-xl bg-white shadow-[0_18px_40px_rgba(23,23,23,.22)]"><header className="flex min-h-[58px] items-center gap-3 border-b border-[var(--border-soft)] px-5"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--brand-tint)]"><Settings2 size={18} strokeWidth={1.9} /></span><div><h2 id="printer-settings-title" className="text-[17px] font-bold">Epson print settings</h2><p className="text-[11.5px] text-[var(--ink-3)]">Check these before every photo-paper print</p></div><button type="button" onClick={onCancel} className="ml-auto grid size-8 place-items-center rounded-md hover:bg-[#faf7ef]" aria-label="Close print settings"><X size={17} /></button></header><div className="p-5"><div className="grid gap-2 sm:grid-cols-2"><PrintSetting label="Printer" value="EPSON L3210 Series" /><PrintSetting label="Paper size" value="A4 · 210 × 297 mm" /><PrintSetting label="Scale" value="Actual Size · 100%" important /><PrintSetting label="Orientation" value="Portrait" /><PrintSetting label="Paper type" value="Epson Photo Quality Ink Jet" important /><PrintSetting label="Quality / color" value="Standard or High · Color" /></div><div className="mt-4 rounded-lg border border-[#eedf8a] bg-[#fffcea] p-3.5 text-[12.5px] leading-5"><strong className="block">How to reach Epson Printer Properties</strong><ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[var(--ink-2)]"><li>In the browser print screen, choose <b>More settings</b>.</li><li>Select <b>Print using system dialog</b> or press <kbd className="rounded border border-[#d8cfb6] bg-white px-1.5 py-0.5 font-semibold text-[var(--ink)]">Ctrl + Shift + P</kbd>.</li><li>Choose the Epson printer, open <b>Preferences / Properties</b>, then select the paper type and quality above.</li></ol></div><p className="mt-3 text-[11.5px] leading-4 text-[var(--ink-3)]">Browsers are not allowed to change printer-driver quality automatically. For the most reliable driver controls, download the PDF, open it in Adobe Acrobat Reader, and print from there.</p></div><footer className="flex flex-wrap justify-end gap-2 border-t border-[var(--border-soft)] bg-[var(--surface-warm)] px-5 py-3"><button type="button" onClick={onCancel} className="h-10 rounded-lg px-3 font-semibold">Cancel</button><button type="button" onClick={onDownload} className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 font-semibold"><Download size={15} /> Download for Adobe Reader</button><button type="button" disabled={generating} onClick={onPrint} className="flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 font-bold disabled:opacity-60">{generating ? <LoaderCircle className="animate-spin" size={16} /> : <Printer size={16} />} Open print dialog</button></footer></div></div>;
 }
 
