@@ -6,8 +6,8 @@ It does not silently print, change global printer defaults, require a special pr
 
 ## Staff installation
 
-1. Download and extract `CJNET-Print-Helper-win-x64.zip`.
-2. Run `Install-CJNET-Print-Helper.ps1` with PowerShell.
+1. Download `CJNET-Print-Helper-Setup.exe`.
+2. Double-click it and wait for the **installed and running** confirmation. Visual Studio Code, Node.js, and the .NET SDK are not required.
 3. Open PhotoDesk and select **Print → Check**.
 4. Right-click the CJNET tray icon and choose **Show pairing code**.
 5. Enter the six-digit code in PhotoDesk and select **Pair**.
@@ -35,13 +35,13 @@ Pairing is one-time for each deployed PhotoDesk origin and Windows browser profi
 
 ## Maintainer build
 
-Install the current .NET 10 SDK, then run:
+Install the current .NET 10 SDK and NSIS 3, then run:
 
 ```powershell
 .\scripts\publish-print-helper.ps1
 ```
 
-This creates `print-helper\CJNET-Print-Helper-win-x64.zip`. Publish the ZIP as a GitHub Release asset or authenticated internal download. Code-sign the executable and installer with a trusted Windows certificate before broad distribution to reduce SmartScreen warnings.
+This creates `print-helper\CJNET-Print-Helper-Setup.exe` for staff and a ZIP fallback. Publish the setup executable as a GitHub Release asset or authenticated internal download. Code-sign it with a trusted Windows certificate before broad distribution to reduce SmartScreen warnings.
 
 The app is .NET self-contained and uses Microsoft's WebView2 runtime, normally already present on Windows 10/11.
 
