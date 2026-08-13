@@ -94,6 +94,8 @@ For a dedicated shop folder, run the optional Windows helper and complete the on
 
 Before opening the print dialog, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. Web browsers cannot change Windows printer-driver options automatically. Use **Print using system dialog** (`Ctrl+Shift+P` in Chromium browsers), then open the Epson printer's **Preferences / Properties**. For the most predictable driver access, use **Download for Adobe Reader** and print the PDF from Adobe Acrobat Reader.
 
+For the normal staff workflow, install the optional [CJNET Windows Print Helper](docs/WINDOWS-PRINT-HELPER.md) once per workstation. PhotoDesk then sends the in-memory PDF to localhost and opens the native Windows dialog, where staff can select any existing printer and open its real Epson Preferences screen. Browser printing and PDF download remain fallbacks.
+
 For the recommended one-choice shop workflow, see [Epson photo queue setup](docs/EPSON-PHOTO-QUEUE-SETUP.md).
 
 Always print with:

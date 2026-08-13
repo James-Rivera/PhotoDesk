@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -11,6 +12,12 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        using var singleInstance = new Mutex(true, "Local\\CJNET.PhotoDesk.PrintHelper", out var ownsMutex);
+        if (!ownsMutex)
+        {
+            MessageBox.Show("CJNET Print Helper is already running in the Windows tray.", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         ApplicationConfiguration.Initialize();
         using var context = new HelperContext();
         Application.Run(context);
@@ -49,6 +56,7 @@ internal sealed class HelperContext : ApplicationContext
         listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
         listener.Start();
         _ = ListenAsync();
+        trayIcon.ShowBalloonTip(4000, "CJNET Print Helper", "Ready for PhotoDesk. Right-click this icon to show the pairing code.", ToolTipIcon.Info);
     }
 
     private ContextMenuStrip BuildMenu()

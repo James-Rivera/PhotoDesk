@@ -24,3 +24,9 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Windows print helper build output
+print-helper/**/bin/
+print-helper/**/obj/
+print-helper/dist/
+print-helper/CJNET-Print-Helper-*.zip
