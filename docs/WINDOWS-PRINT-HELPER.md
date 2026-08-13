@@ -1,8 +1,8 @@
 # CJNET Windows Print Helper
 
-The Print Helper lets Vercel-hosted PhotoDesk open Windows' native print dialog for the exact A4 PDF generated in browser memory. Staff can select any installed or shared printer and open its real **Preferences** screen, including Epson paper type, quality, and color controls.
+The Print Helper lets Vercel-hosted PhotoDesk open a focused Windows print window for the exact A4 PDF generated in browser memory. Staff see the PDF preview, select any installed or shared printer, and open its real **Properties** screen for Epson paper type, quality, and color controls.
 
-It does not silently print, change global printer defaults, require a special printer queue, or upload the PDF to another server.
+It prints only after staff select the final **Print** button. It does not require a special printer queue or upload the PDF to another server. Changes saved in **Printer Properties** become that Windows user's preferences for the selected printer.
 
 ## Staff installation
 
@@ -17,10 +17,10 @@ Pairing is one-time for each deployed PhotoDesk origin and Windows browser profi
 ## Daily printing
 
 1. Build the layout and select **Print**.
-2. Select **Open Windows dialog**.
-3. Choose the installed/shared Epson printer.
-4. Open **Preferences** and confirm A4, Portrait, Epson Photo Quality Ink Jet, Standard or High, Color, one-sided, and no multi-page layout.
-5. Confirm the print.
+2. Select **Open print preview**.
+3. Confirm the exact one-page A4 preview on the left and choose the installed/shared Epson printer.
+4. Select **Printer properties** and confirm A4, Portrait, Epson Photo Quality Ink Jet, Standard or High, Color, one-sided, and no multi-page layout. Close Properties when finished.
+5. Leave copies at 1 unless the customer needs duplicate sheets, then select **Print**.
 
 **Browser fallback** and **Download PDF** remain available if the helper is stopped.
 
@@ -31,7 +31,7 @@ Pairing is one-time for each deployed PhotoDesk origin and Windows browser profi
 - Tokens are bound to the exact website origin and stay on that Windows computer.
 - Print requests require the token, accept PDF signatures only, and are limited to 30 MB.
 - Temporary PDFs are deleted when the helper preview closes.
-- The helper deliberately opens a confirmation dialog and does not silently print.
+- The helper displays a preview and requires an explicit final Print action.
 
 ## Maintainer build
 

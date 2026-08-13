@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Net;
+using System.Diagnostics;
+using System.Drawing.Printing;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -27,7 +29,7 @@ internal static class Program
 
 internal sealed class HelperContext : ApplicationContext
 {
-    internal const string Version = "0.1.1";
+    internal const string Version = "0.2.0";
     internal const int Port = 17421;
     internal const int MaxPdfBytes = 30 * 1024 * 1024;
 
@@ -176,7 +178,7 @@ internal sealed class HelperContext : ApplicationContext
         var path = Path.Combine(tempDirectory, $"CJNET-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, pdfBytes);
         BeginInvokeOnUi(() => ShowPrintWindow(path));
-        await WriteJson(context.Response, new { ok = true, message = "Windows print dialog opened." });
+        await WriteJson(context.Response, new { ok = true, message = "CJNET print preview opened." });
     }
 
     private void ShowPrintWindow(string path)
@@ -279,19 +281,171 @@ internal sealed class HelperContext : ApplicationContext
 
 internal sealed class PrintWindow : Form
 {
-    private readonly string pdfPath;
+    private const double A4WidthInches = 210.0 / 25.4;
+    private const double A4HeightInches = 297.0 / 25.4;
+
     private readonly WebView2 webView = new() { Dock = DockStyle.Fill };
+    private readonly ComboBox printerList = new() { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Top };
+    private readonly NumericUpDown copies = new() { Minimum = 1, Maximum = 99, Value = 1, Dock = DockStyle.Top };
+    private readonly Button propertiesButton = new() { Text = "Printer properties", Height = 42, Dock = DockStyle.Top };
+    private readonly Button printButton = new() { Text = "Print 1 A4 sheet", Height = 46, Dock = DockStyle.Top, Enabled = false };
+    private readonly Label statusLabel = new() { AutoSize = false, Height = 44, Dock = DockStyle.Top, ForeColor = Color.DimGray };
+    private readonly string pdfPath;
 
     public PrintWindow(string pdfPath)
     {
         this.pdfPath = pdfPath;
-        Text = "CJNET PhotoDesk — Print";
-        Width = 980;
-        Height = 760;
+        Text = "CJNET PhotoDesk - Print";
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        Width = 1120;
+        Height = 780;
+        MinimumSize = new Size(900, 640);
         StartPosition = FormStartPosition.CenterScreen;
         ShowInTaskbar = true;
-        Controls.Add(webView);
+        BackColor = Color.FromArgb(245, 241, 232);
+
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(12) };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.Controls.Add(webView, 0, 0);
+        layout.Controls.Add(BuildControls(), 1, 0);
+        Controls.Add(layout);
+
+        LoadPrinters();
+        copies.ValueChanged += (_, _) => UpdatePrintButtonText();
+        propertiesButton.Click += (_, _) => OpenPrinterProperties();
+        printButton.Click += async (_, _) => await PrintAsync();
         Shown += OnShown;
+    }
+
+    private Control BuildControls()
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 8, 8, 8) };
+        var closeButton = new Button { Text = "Cancel", Height = 38, Dock = DockStyle.Bottom };
+        closeButton.Click += (_, _) => Close();
+
+        var content = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+        };
+
+        content.Controls.Add(MakeLabel("PRINT A4 PHOTO", 9, FontStyle.Bold, Color.FromArgb(90, 82, 62), 30));
+        content.Controls.Add(MakeLabel("Ready to print", 16, FontStyle.Bold, Color.FromArgb(23, 23, 23), 34));
+        content.Controls.Add(MakeLabel("The left side is the exact one-page A4 PDF.", 10, FontStyle.Regular, Color.DimGray, 46));
+        content.Controls.Add(MakeLabel("Printer", 10, FontStyle.Bold, Color.FromArgb(23, 23, 23), 26));
+        content.Controls.Add(printerList);
+        content.Controls.Add(Spacer(10));
+        content.Controls.Add(propertiesButton);
+        content.Controls.Add(MakeLabel("Set Epson Photo Quality Ink Jet and Standard or High quality. Close Properties before printing.", 9, FontStyle.Regular, Color.DimGray, 62));
+        content.Controls.Add(MakeLabel("Copies", 10, FontStyle.Bold, Color.FromArgb(23, 23, 23), 26));
+        content.Controls.Add(copies);
+        content.Controls.Add(Spacer(14));
+        content.Controls.Add(printButton);
+        content.Controls.Add(statusLabel);
+
+        foreach (Control control in content.Controls)
+        {
+            control.Width = 270;
+            control.Margin = new Padding(0, 0, 0, 4);
+        }
+
+        panel.Controls.Add(content);
+        panel.Controls.Add(closeButton);
+        return panel;
+    }
+
+    private static Label MakeLabel(string text, float size, FontStyle style, Color color, int height) => new()
+    {
+        Text = text,
+        Font = new Font("Segoe UI", size, style),
+        ForeColor = color,
+        Height = height,
+        AutoSize = false,
+    };
+
+    private static Control Spacer(int height) => new Panel { Height = height };
+
+    private void LoadPrinters()
+    {
+        try
+        {
+            foreach (string printer in PrinterSettings.InstalledPrinters) printerList.Items.Add(printer);
+            var defaultPrinter = new PrinterSettings().PrinterName;
+            var defaultIndex = printerList.Items.IndexOf(defaultPrinter);
+            if (printerList.Items.Count > 0) printerList.SelectedIndex = defaultIndex >= 0 ? defaultIndex : 0;
+        }
+        catch (Exception error)
+        {
+            statusLabel.Text = $"Windows printers could not load: {error.Message}";
+        }
+        propertiesButton.Enabled = printerList.Items.Count > 0;
+        if (printerList.Items.Count == 0 && string.IsNullOrWhiteSpace(statusLabel.Text)) statusLabel.Text = "No Windows printers were found.";
+    }
+
+    private void OpenPrinterProperties()
+    {
+        if (printerList.SelectedItem is not string printerName) return;
+        try
+        {
+            var startInfo = new ProcessStartInfo("rundll32.exe") { UseShellExecute = true };
+            startInfo.ArgumentList.Add("printui.dll,PrintUIEntry");
+            startInfo.ArgumentList.Add("/e");
+            startInfo.ArgumentList.Add("/n");
+            startInfo.ArgumentList.Add(printerName);
+            Process.Start(startInfo);
+            statusLabel.Text = "Close Printer Properties when finished, then click Print.";
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show($"Printer Properties could not open.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void UpdatePrintButtonText() => printButton.Text = copies.Value == 1 ? "Print 1 A4 sheet" : $"Print {copies.Value} A4 sheets";
+
+    private async Task PrintAsync()
+    {
+        if (printerList.SelectedItem is not string printerName || webView.CoreWebView2 is null) return;
+        printButton.Enabled = false;
+        propertiesButton.Enabled = false;
+        statusLabel.Text = "Sending the exact A4 sheet to Windows...";
+        try
+        {
+            var settings = webView.CoreWebView2.Environment.CreatePrintSettings();
+            settings.PrinterName = printerName;
+            settings.Copies = (int)copies.Value;
+            settings.Orientation = CoreWebView2PrintOrientation.Portrait;
+            settings.MediaSize = CoreWebView2PrintMediaSize.Custom;
+            settings.PageWidth = A4WidthInches;
+            settings.PageHeight = A4HeightInches;
+            settings.ScaleFactor = 1.0;
+            settings.MarginTop = 0;
+            settings.MarginRight = 0;
+            settings.MarginBottom = 0;
+            settings.MarginLeft = 0;
+            settings.PageRanges = "1";
+            settings.PagesPerSide = 1;
+            settings.ColorMode = CoreWebView2PrintColorMode.Color;
+            settings.Duplex = CoreWebView2PrintDuplex.OneSided;
+            settings.ShouldPrintBackgrounds = true;
+            settings.ShouldPrintHeaderAndFooter = false;
+
+            var result = await webView.CoreWebView2.PrintAsync(settings);
+            if (result != CoreWebView2PrintStatus.Succeeded) throw new InvalidOperationException($"Windows returned {result}.");
+            MessageBox.Show("The one-page A4 photo sheet was sent to the printer.", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Close();
+        }
+        catch (Exception error)
+        {
+            statusLabel.Text = "Printing failed. Check the printer and try again.";
+            MessageBox.Show($"The photo sheet could not print.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            printButton.Enabled = true;
+            propertiesButton.Enabled = true;
+        }
     }
 
     private async void OnShown(object? sender, EventArgs e)
@@ -309,11 +463,12 @@ internal sealed class PrintWindow : Form
             webView.NavigationCompleted += Completed;
             webView.Source = new Uri(pdfPath);
             await ready.Task;
-            webView.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.System);
+            printButton.Enabled = printerList.Items.Count > 0;
+            statusLabel.Text = "Ready - A4 portrait - Actual size - 1 page";
         }
         catch (Exception error)
         {
-            MessageBox.Show($"The Windows print dialog could not open.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"The PDF preview could not open.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
         }
     }
