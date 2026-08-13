@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { A4_HEIGHT_POINTS, A4_WIDTH_POINTS, ONE_BY_ONE_POINTS, TWO_BY_TWO_POINTS } from "./constants";
+import { A4_HEIGHT_POINTS, A4_WIDTH_POINTS, CJNET_NORMAL_EDGE_MARGIN_POINTS, ONE_BY_ONE_POINTS, TWO_BY_TWO_POINTS } from "./constants";
 import { arrangeOnPage } from "./engine";
-import { createCjnetNormalRequest, createCustomRequest, createFixedSquareRequest } from "./presets";
+import { createCjnetNormalRequest, createCustomRequest, createFixedSquareRequest, createPassportRequest } from "./presets";
 import { inchesToPoints, millimetersToPoints } from "./units";
 
 describe("physical unit conversion", () => {
@@ -25,6 +25,9 @@ describe("layout engine", () => {
     expect(result.placed.slice(0, 4).map((item) => item.row)).toEqual([0, 0, 0, 0]);
     expect(result.placed.slice(4).map((item) => item.row)).toEqual([1, 1, 1, 1, 1, 1]);
     expect(result.placed[4].y).toBeGreaterThan(result.placed[0].y);
+    expect(result.placed[0]).toMatchObject({ x: CJNET_NORMAL_EDGE_MARGIN_POINTS, y: CJNET_NORMAL_EDGE_MARGIN_POINTS });
+    expect(result.placed[3].x + result.placed[3].width + CJNET_NORMAL_EDGE_MARGIN_POINTS).toBeCloseTo(A4_WIDTH_POINTS, 10);
+    expect(CJNET_NORMAL_EDGE_MARGIN_POINTS).toBeCloseTo(millimetersToPoints(3.4), 1);
   });
 
   it("reports copies that overflow rather than shrinking them", () => {
@@ -40,5 +43,14 @@ describe("layout engine", () => {
     expect(result.placed[0]).toMatchObject({ x: 36, y: 36 });
     expect(result.placed[1].x).toBe(36 + 72 + 18);
     expect(result.content.width).toBeCloseTo(A4_WIDTH_POINTS - 72, 10);
+  });
+
+  it("uses the CJNET printer-safe margin for Passport cutting guides", () => {
+    const request = createPassportRequest(35, 45, 5);
+    const result = arrangeOnPage(request);
+    const safeMargin = CJNET_NORMAL_EDGE_MARGIN_POINTS;
+    expect(request.margins).toEqual({ top: safeMargin, right: safeMargin, bottom: safeMargin, left: safeMargin });
+    expect(result.placed[0]).toMatchObject({ x: safeMargin, y: safeMargin });
+    expect(result.placed.every((item) => item.x >= safeMargin && item.y >= safeMargin)).toBe(true);
   });
 });

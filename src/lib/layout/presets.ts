@@ -1,4 +1,4 @@
-import { A4_PAGE, ONE_BY_ONE_POINTS, TWO_BY_TWO_POINTS } from "./constants";
+import { A4_PAGE, CJNET_NORMAL_EDGE_MARGIN_POINTS, ONE_BY_ONE_POINTS, PASSPORT_EDGE_MARGIN_POINTS, TWO_BY_TWO_POINTS } from "./constants";
 import type { LayoutItem, LayoutRequest } from "./types";
 import { millimetersToPoints, toPoints, type PhysicalUnit } from "./units";
 
@@ -42,10 +42,14 @@ export function createCjnetNormalRequest(): LayoutRequest {
 }
 
 export function createMixedSquareRequest(bigQuantity: number, smallQuantity: number): LayoutRequest {
-  return baseRequest([
-    ...repeat(bigQuantity, TWO_BY_TWO_POINTS, "big"),
-    ...repeat(smallQuantity, ONE_BY_ONE_POINTS, "small", true),
-  ]);
+  return baseRequest(
+    [
+      ...repeat(bigQuantity, TWO_BY_TWO_POINTS, "big"),
+      ...repeat(smallQuantity, ONE_BY_ONE_POINTS, "small", true),
+    ],
+    0,
+    CJNET_NORMAL_EDGE_MARGIN_POINTS,
+  );
 }
 
 export function createFixedSquareRequest(size: "1x1" | "2x2", quantity: number): LayoutRequest {
@@ -59,7 +63,7 @@ export function createPassportRequest(widthMm: number, heightMm: number, quantit
   return baseRequest(
     Array.from({ length: quantity }, (_, index) => ({ id: `passport-${index}`, sourceKey: "big", width, height })),
     millimetersToPoints(2),
-    millimetersToPoints(5),
+    PASSPORT_EDGE_MARGIN_POINTS,
   );
 }
 

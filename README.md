@@ -56,6 +56,8 @@ Passport mode uses a mixed shelf-packing algorithm:
 
 The yellow **Use the empty paper** suggestion calculates the remaining 1×1 capacity for the current passport dimensions and fills it with one click. Changing the passport dimensions recalculates the capacity automatically.
 
+Passport sheets use the same approximately 3.4 mm printer-safe A4 edge allowance and shared 0.5 pt medium-gray cutting guides as CJNET Normal. This still leaves room for a 1×1 photo beside five 35 mm-wide passport photos. Photo width and height remain exactly equal to the configured millimeter values.
+
 ### 3. Crop and background
 
 The crop dialog supports only the controls needed for ID printing:
@@ -81,11 +83,15 @@ Replacement colors show through transparent pixels. They cannot remove the exist
 
 Cutting borders can be enabled or disabled. Their color and thickness are adjustable. Shared and overlapping guide segments are merged before they are drawn in the PDF, avoiding doubled cut lines between adjacent photos.
 
-The recommended default is the `0.25 pt` warm-gray hairline.
+The recommended default is a medium-gray `0.5 pt` line so ordinary photo printers reproduce every guide reliably. `CJNET Normal` centers its four exact 2×2 photos with approximately `3.4 mm` of space on each A4 edge—the largest equal left/right allowance possible without shrinking the photos. This matches the geometry measured from the shop's established Photoshop template.
 
 ### 5. Download and print
 
 **Download PDF** creates the print-ready file locally. **Print** opens the same generated PDF before invoking the browser print workflow. `Ctrl+P` uses this exact PDF path when the layout is valid.
+
+Before opening the print dialog, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. Web browsers cannot change Windows printer-driver options automatically. Use **Print using system dialog** (`Ctrl+Shift+P` in Chromium browsers), then open the Epson printer's **Preferences / Properties**. For the most predictable driver access, use **Download for Adobe Reader** and print the PDF from Adobe Acrobat Reader.
+
+For the recommended one-choice shop workflow, see [Epson photo queue setup](docs/EPSON-PHOTO-QUEUE-SETUP.md).
 
 Always print with:
 

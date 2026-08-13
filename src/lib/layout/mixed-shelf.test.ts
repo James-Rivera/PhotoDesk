@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { A4_PAGE, ONE_BY_ONE_POINTS } from "./constants";
+import { A4_PAGE, CJNET_NORMAL_EDGE_MARGIN_POINTS, ONE_BY_ONE_POINTS, PASSPORT_EDGE_MARGIN_POINTS } from "./constants";
 import { arrangeMixedShelves, maximumSmallCopies, smallCopiesBesideBigRows } from "./mixed-shelf";
 import { millimetersToPoints } from "./units";
 
 const request = {
   page: A4_PAGE,
-  margins: { top: millimetersToPoints(2), right: millimetersToPoints(2), bottom: millimetersToPoints(2), left: millimetersToPoints(2) },
+  margins: { top: PASSPORT_EDGE_MARGIN_POINTS, right: PASSPORT_EDGE_MARGIN_POINTS, bottom: PASSPORT_EDGE_MARGIN_POINTS, left: PASSPORT_EDGE_MARGIN_POINTS },
   big: { width: millimetersToPoints(35), height: millimetersToPoints(45) },
   small: { width: ONE_BY_ONE_POINTS, height: ONE_BY_ONE_POINTS },
   bigQuantity: 5,
@@ -17,6 +17,7 @@ describe("mixed Passport and 1x1 shelf packing", () => {
     const firstSmall = layout.placed.find((item) => item.sourceKey === "small");
     const firstPassport = layout.placed.find((item) => item.sourceKey === "big");
     expect(layout.fits).toBe(true);
+    expect(firstPassport).toMatchObject({ x: PASSPORT_EDGE_MARGIN_POINTS, y: PASSPORT_EDGE_MARGIN_POINTS });
     expect(firstSmall?.row).toBe(firstPassport?.row);
     expect(firstSmall?.y).toBe(firstPassport?.y);
     expect(firstSmall?.x).toBeGreaterThan(firstPassport?.x ?? 0);
@@ -32,6 +33,7 @@ describe("mixed Passport and 1x1 shelf packing", () => {
   it("calculates 1x1 capacity beside a fifth 2x2 photo", () => {
     const twoByTwoRequest = {
       ...request,
+      margins: { top: CJNET_NORMAL_EDGE_MARGIN_POINTS, right: CJNET_NORMAL_EDGE_MARGIN_POINTS, bottom: CJNET_NORMAL_EDGE_MARGIN_POINTS, left: CJNET_NORMAL_EDGE_MARGIN_POINTS },
       big: { width: 144, height: 144 },
       bigQuantity: 5,
     };
@@ -40,6 +42,7 @@ describe("mixed Passport and 1x1 shelf packing", () => {
     const fifthBig = layout.placed.filter((item) => item.sourceKey === "big")[4];
     const smallItems = layout.placed.filter((item) => item.sourceKey === "small");
     expect(smallItems).toHaveLength(6);
+    expect(layout.placed[0].x).toBe(CJNET_NORMAL_EDGE_MARGIN_POINTS);
     expect(smallItems.every((item) => item.row === fifthBig.row)).toBe(true);
     expect(smallItems.every((item) => item.x >= fifthBig.x + fifthBig.width)).toBe(true);
   });

@@ -2,12 +2,14 @@
 /* eslint-disable @next/next/no-img-element -- local blob URLs intentionally bypass Next image optimization */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Download, ImageIcon, Info, Library, LoaderCircle, Minus, Plus, Printer, RotateCcw, Upload, X } from "lucide-react";
+import { AlertTriangle, Check, Download, ImageIcon, Info, Library, LoaderCircle, Minus, Plus, Printer, RotateCcw, Settings2, Upload, X } from "lucide-react";
 import {
   A4_HEIGHT_POINTS,
   A4_PAGE,
   A4_WIDTH_POINTS,
+  CJNET_NORMAL_EDGE_MARGIN_POINTS,
   ONE_BY_ONE_POINTS,
+  PASSPORT_EDGE_MARGIN_POINTS,
   PRESETS,
   TWO_BY_TWO_POINTS,
   arrangeOnPage,
@@ -55,8 +57,8 @@ export function TemplateFoundation() {
   const [passport, setPassport] = useState({ width: 35, height: 45 });
   const [custom, setCustom] = useState({ width: 2, height: 2, unit: "in" as "in" | "mm" | "cm", quantity: 4, spacing: 2, margin: 2 });
   const [borders, setBorders] = useState(true);
-  const [borderColor, setBorderColor] = useState("#b9b2a2");
-  const [borderThickness, setBorderThickness] = useState(0.25);
+  const [borderColor, setBorderColor] = useState("#808080");
+  const [borderThickness, setBorderThickness] = useState(0.5);
   const [backgroundChoice, setBackgroundChoice] = useState<"transparent" | "white" | "blue" | "custom">("white");
   const [customBackground, setCustomBackground] = useState("#dbeafe");
   const [sameForAll, setSameForAll] = useState(true);
@@ -68,6 +70,7 @@ export function TemplateFoundation() {
   const [notice, setNotice] = useState<string | null>(null);
   const [generating, setGenerating] = useState<"download" | "print" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showPrintGuide, setShowPrintGuide] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const smallInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,14 +88,14 @@ export function TemplateFoundation() {
   }, [counts, custom, passport, preset, tab]);
   const passportMixedBase = useMemo(() => ({
     page: A4_PAGE,
-    margins: { top: millimetersToPoints(2), right: millimetersToPoints(2), bottom: millimetersToPoints(2), left: millimetersToPoints(2) },
+    margins: { top: PASSPORT_EDGE_MARGIN_POINTS, right: PASSPORT_EDGE_MARGIN_POINTS, bottom: PASSPORT_EDGE_MARGIN_POINTS, left: PASSPORT_EDGE_MARGIN_POINTS },
     big: { width: millimetersToPoints(passport.width), height: millimetersToPoints(passport.height) },
     small: { width: ONE_BY_ONE_POINTS, height: ONE_BY_ONE_POINTS },
     bigQuantity: counts.big,
   }), [counts.big, passport.height, passport.width]);
   const normalMixedBase = useMemo(() => ({
     page: A4_PAGE,
-    margins: { top: millimetersToPoints(2), right: millimetersToPoints(2), bottom: millimetersToPoints(2), left: millimetersToPoints(2) },
+    margins: { top: CJNET_NORMAL_EDGE_MARGIN_POINTS, right: CJNET_NORMAL_EDGE_MARGIN_POINTS, bottom: CJNET_NORMAL_EDGE_MARGIN_POINTS, left: CJNET_NORMAL_EDGE_MARGIN_POINTS },
     big: { width: TWO_BY_TWO_POINTS, height: TWO_BY_TWO_POINTS },
     small: { width: ONE_BY_ONE_POINTS, height: ONE_BY_ONE_POINTS },
     bigQuantity: counts.big,
@@ -195,6 +198,7 @@ export function TemplateFoundation() {
   }
 
   async function printPdf() {
+    setShowPrintGuide(false);
     const printWindow = window.open("", "_blank");
     if (!printWindow) { setError("Printing was blocked. Allow pop-ups for this page, then try again."); return; }
     printWindow.document.write("<title>Preparing CJNET print…</title><p style='font:16px sans-serif;padding:24px'>Preparing exact-size A4 PDF…</p>");
@@ -205,7 +209,7 @@ export function TemplateFoundation() {
       printWindow.location.href = url;
       window.setTimeout(() => { printWindow.focus(); printWindow.print(); }, 1200);
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setNotice("Print dialog opened. Choose A4 and Actual Size / 100%.");
+      setNotice("Print dialog opened. Use A4, Actual Size / 100%, then open Epson Printer Properties for photo-paper quality.");
     } catch (cause) { printWindow.close(); setError(pdfError(cause)); } finally { setGenerating(null); }
   }
 
@@ -221,7 +225,7 @@ export function TemplateFoundation() {
   }
 
   function resetSheet() {
-    setPhoto(null); setSmallPhoto(null); setPreset("cjnet-normal"); setTab("presets"); setCounts(presetDefaults["cjnet-normal"]); setPassport({ width: 35, height: 45 }); setCustom({ width: 2, height: 2, unit: "in", quantity: 4, spacing: 2, margin: 2 }); setBorders(true); setBorderColor("#b9b2a2"); setBorderThickness(0.25); setBackgroundChoice("white"); setCustomBackground("#dbeafe"); setSameForAll(true); setCrops({ big: DEFAULT_CROP, small: DEFAULT_CROP }); setError(null); setNotice(null); setConfirmReset(false);
+    setPhoto(null); setSmallPhoto(null); setPreset("cjnet-normal"); setTab("presets"); setCounts(presetDefaults["cjnet-normal"]); setPassport({ width: 35, height: 45 }); setCustom({ width: 2, height: 2, unit: "in", quantity: 4, spacing: 2, margin: 2 }); setBorders(true); setBorderColor("#808080"); setBorderThickness(0.5); setBackgroundChoice("white"); setCustomBackground("#dbeafe"); setSameForAll(true); setCrops({ big: DEFAULT_CROP, small: DEFAULT_CROP }); setError(null); setNotice(null); setConfirmReset(false);
   }
 
   const cropPhoto = cropTarget === "small" && !sameForAll && smallPhoto ? smallPhoto : photo;
@@ -255,17 +259,18 @@ export function TemplateFoundation() {
           <label className="mt-3 flex items-center justify-between gap-3"><span><strong className="block font-semibold">Use same photo for all sizes</strong><span className="text-[11.5px] text-[var(--ink-3)]">Separate crops are still available</span></span><input type="checkbox" checked={sameForAll} onChange={(event) => setSameForAll(event.target.checked)} className="size-4 accent-black" /></label>
           {!sameForAll && counts.small > 0 && <div className="mt-2.5 rounded-lg border border-[#eedf8a] bg-[#fffcea] p-3"><input ref={smallInputRef} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void acceptFile(file, "small"); event.target.value = ""; }} /><p className="font-bold">1×1 photo and crop</p><p className="mt-1 truncate text-[11.5px] text-[var(--ink-2)]">{smallPhoto?.file.name ?? "Using the main photo until replaced"}</p><div className="mt-2 flex gap-2"><button type="button" onClick={() => smallInputRef.current?.click()} className="h-8 rounded-md border border-[var(--border)] bg-white px-2.5 font-semibold">Choose photo</button><button type="button" disabled={!photo} onClick={() => setCropTarget("small")} className="h-8 rounded-md border border-[var(--border)] bg-white px-2.5 font-semibold disabled:opacity-45">Crop 1×1</button></div></div>}
           <div className="mt-3"><label className="font-semibold" htmlFor="photo-background">Photo background</label><select id="photo-background" value={backgroundChoice} onChange={(event) => setBackgroundChoice(event.target.value as typeof backgroundChoice)} className="mt-1.5 h-9 w-full rounded-lg border border-[var(--border)] bg-white px-2"><option value="transparent">Original / transparent</option><option value="white">Pure white</option><option value="blue">Light blue</option><option value="custom">Custom color</option></select>{backgroundChoice === "custom" && <input aria-label="Custom photo background color" type="color" value={customBackground} onChange={(event) => setCustomBackground(event.target.value)} className="mt-2 h-9 w-full rounded-lg border border-[var(--border)] bg-white p-1" />}<p className="mt-1.5 text-[11.5px] leading-4 text-[var(--ink-3)]">Visible through transparent areas. For an opaque photo, remove its background first.</p></div>
-          <label className="mt-3 flex items-center justify-between gap-3"><span><strong className="block font-semibold">Cutting borders</strong><span className="text-[11.5px] text-[var(--ink-3)]">Shared hairline guides</span></span><input type="checkbox" checked={borders} onChange={(event) => setBorders(event.target.checked)} className="size-4 accent-black" /></label>
-          {borders && <div className="mt-2 grid grid-cols-[1fr_1fr] gap-2"><label><span className="mb-1 block text-[11px] font-bold text-[var(--ink-3)]">Color</span><input type="color" value={borderColor} onChange={(event) => setBorderColor(event.target.value)} className="h-9 w-full rounded-lg border border-[var(--border)] bg-white p-1" /></label><label><span className="mb-1 block text-[11px] font-bold text-[var(--ink-3)]">Thickness</span><select value={borderThickness} onChange={(event) => setBorderThickness(Number(event.target.value))} className="h-9 w-full rounded-lg border border-[var(--border)] bg-white px-2"><option value={0.25}>0.25 pt</option><option value={0.5}>0.5 pt</option><option value={1}>1 pt</option></select></label></div>}
+          <label className="mt-3 flex items-center justify-between gap-3"><span><strong className="block font-semibold">Cutting borders</strong><span className="text-[11.5px] text-[var(--ink-3)]">Printer-safe shared guides</span></span><input type="checkbox" checked={borders} onChange={(event) => setBorders(event.target.checked)} className="size-4 accent-black" /></label>
+          {borders && <><div className="mt-2 grid grid-cols-[1fr_1fr] gap-2"><label><span className="mb-1 block text-[11px] font-bold text-[var(--ink-3)]">Color</span><input type="color" value={borderColor} onChange={(event) => setBorderColor(event.target.value)} className="h-9 w-full rounded-lg border border-[var(--border)] bg-white p-1" /></label><label><span className="mb-1 block text-[11px] font-bold text-[var(--ink-3)]">Thickness</span><select value={borderThickness} onChange={(event) => setBorderThickness(Number(event.target.value))} className="h-9 w-full rounded-lg border border-[var(--border)] bg-white px-2"><option value={0.25}>0.25 pt</option><option value={0.5}>0.5 pt (recommended)</option><option value={0.75}>0.75 pt</option><option value={1}>1 pt</option></select></label></div>{preset === "cjnet-normal" && tab === "presets" && <p className="mt-2 text-[11.5px] leading-4 text-[var(--ink-3)]">CJNET Normal is centered with the maximum 3.4 mm edge allowance while keeping all four 2×2 photos exact size.</p>}{preset === "passport" && tab === "presets" && <p className="mt-2 text-[11.5px] leading-4 text-[var(--ink-3)]">Passport sheets use the same 3.4 mm printer-safe edge allowance and clear shared guides as CJNET Normal, while keeping the configured photo size exact.</p>}</>}
         </aside>
 
           <Preview layout={layout} photo={photo} smallPhoto={smallPhoto} sameForAll={sameForAll} crops={crops} borders={borders} borderColor={borderColor} borderThickness={borderThickness} backgroundColor={photoBackground} presetName={activeDefinition?.name ?? "Custom"} previewZoom={previewZoom} onZoom={setPreviewZoom} />
       </div>
 
-      <footer className="sticky bottom-0 z-10 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-t border-[var(--border-soft)] bg-white px-5 py-3"><div className="flex max-w-2xl items-start gap-2 text-[12.5px] leading-5 text-[var(--ink-2)]"><Info size={16} strokeWidth={1.9} className="mt-0.5 shrink-0" /><p>Print on A4 photo paper · set Scale to <mark className="bg-[var(--brand-tint)] px-1 font-bold text-[var(--ink)]">Actual Size (100%)</mark><br /><strong className="text-[var(--warn)]">Huwag piliin ang &apos;Fit to page&apos; — mababawasan ang sukat.</strong></p></div><div className="flex items-center gap-2"><button type="button" disabled={!photo} onClick={() => setConfirmReset(true)} className="flex h-10 items-center gap-2 rounded-lg px-3 font-semibold disabled:opacity-45"><RotateCcw size={15} /> Reset</button><button type="button" disabled={!canOutput} onClick={() => void downloadPdf()} className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] px-3 font-semibold disabled:cursor-not-allowed disabled:opacity-45">{generating === "download" ? <LoaderCircle className="animate-spin" size={15} /> : <Download size={15} />} {generating === "download" ? "Preparing…" : "Download PDF"}</button><button type="button" disabled={!canOutput} onClick={() => void printPdf()} className="flex h-11 items-center gap-2 rounded-lg bg-[var(--brand)] px-5 text-[15px] font-bold hover:bg-[var(--brand-hover)] active:bg-[var(--brand-pressed)] disabled:cursor-not-allowed disabled:bg-[var(--brand-off)] disabled:text-[#9a9484]">{generating === "print" ? <LoaderCircle className="animate-spin" size={17} /> : <Printer size={17} />} {generating === "print" ? "Preparing…" : "Print"}</button></div></footer>
+      <footer className="sticky bottom-0 z-10 flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-t border-[var(--border-soft)] bg-white px-5 py-3"><div className="flex max-w-2xl items-start gap-2 text-[12.5px] leading-5 text-[var(--ink-2)]"><Info size={16} strokeWidth={1.9} className="mt-0.5 shrink-0" /><p>Print on A4 photo paper · set Scale to <mark className="bg-[var(--brand-tint)] px-1 font-bold text-[var(--ink)]">Actual Size (100%)</mark><br /><strong className="text-[var(--warn)]">Huwag piliin ang &apos;Fit to page&apos; — mababawasan ang sukat.</strong></p></div><div className="flex items-center gap-2"><button type="button" disabled={!photo} onClick={() => setConfirmReset(true)} className="flex h-10 items-center gap-2 rounded-lg px-3 font-semibold disabled:opacity-45"><RotateCcw size={15} /> Reset</button><button type="button" disabled={!canOutput} onClick={() => void downloadPdf()} className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] px-3 font-semibold disabled:cursor-not-allowed disabled:opacity-45">{generating === "download" ? <LoaderCircle className="animate-spin" size={15} /> : <Download size={15} />} {generating === "download" ? "Preparing…" : "Download PDF"}</button><button type="button" disabled={!canOutput} onClick={() => setShowPrintGuide(true)} className="flex h-11 items-center gap-2 rounded-lg bg-[var(--brand)] px-5 text-[15px] font-bold hover:bg-[var(--brand-hover)] active:bg-[var(--brand-pressed)] disabled:cursor-not-allowed disabled:bg-[var(--brand-off)] disabled:text-[#9a9484]"><Printer size={17} /> Print</button></div></footer>
 
       {cropTarget && cropPhoto && <CropDialog photo={cropPhoto} crop={crops[cropTarget]} size={cropSize} onCancel={() => setCropTarget(null)} onApply={(value) => { const target = cropTarget; setCrops((current) => ({ ...current, [target]: value })); setCropTarget(null); setNotice(`${cropSize.label} crop applied.`); }} />}
       {confirmReset && <ConfirmDialog title="Reset this sheet?" body="The selected photo, crops, quantities, and guide settings will be cleared." safeLabel="Keep this sheet" destructiveLabel="Reset sheet" onSafe={() => setConfirmReset(false)} onDestructive={resetSheet} />}
+      {showPrintGuide && <PrinterSettingsDialog generating={generating === "print"} onCancel={() => setShowPrintGuide(false)} onDownload={() => { setShowPrintGuide(false); void downloadPdf(); }} onPrint={() => void printPdf()} />}
     </div>
   );
 }
@@ -292,6 +297,14 @@ function CropDialog({ photo, crop, size, onApply, onCancel }: { photo: LoadedPho
 function ConfirmDialog({ title, body, safeLabel, destructiveLabel, onSafe, onDestructive }: { title: string; body: string; safeLabel: string; destructiveLabel: string; onSafe: () => void; onDestructive: () => void }) {
   useEffect(() => { const handle = (event: KeyboardEvent) => { if (event.key === "Escape") onSafe(); }; window.addEventListener("keydown", handle); return () => window.removeEventListener("keydown", handle); }, [onSafe]);
   return <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(23,23,23,.42)] p-5" role="dialog" aria-modal="true"><div className="w-full max-w-[430px] rounded-xl bg-white p-5 shadow-[0_18px_40px_rgba(23,23,23,.22)]"><span className="grid size-9 place-items-center rounded-lg bg-[#fff6e5] text-[var(--warn)]"><AlertTriangle size={18} /></span><h2 className="mt-4 text-[16.5px] font-bold">{title}</h2><p className="mt-2 text-[13px] leading-[1.55] text-[var(--ink-2)]">{body}</p><div className="mt-5 flex justify-end gap-2"><button type="button" autoFocus onClick={onSafe} className="h-10 rounded-lg bg-[var(--brand)] px-4 font-bold">{safeLabel}</button><button type="button" onClick={onDestructive} className="h-10 rounded-lg border border-[#d48b79] px-4 font-bold text-[var(--danger)]">{destructiveLabel}</button></div></div></div>;
+}
+
+function PrinterSettingsDialog({ generating, onCancel, onDownload, onPrint }: { generating: boolean; onCancel: () => void; onDownload: () => void; onPrint: () => void }) {
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(23,23,23,.42)] p-5" role="dialog" aria-modal="true" aria-labelledby="printer-settings-title"><div className="w-full max-w-[620px] overflow-hidden rounded-xl bg-white shadow-[0_18px_40px_rgba(23,23,23,.22)]"><header className="flex min-h-[58px] items-center gap-3 border-b border-[var(--border-soft)] px-5"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--brand-tint)]"><Settings2 size={18} strokeWidth={1.9} /></span><div><h2 id="printer-settings-title" className="text-[17px] font-bold">Epson print settings</h2><p className="text-[11.5px] text-[var(--ink-3)]">Check these before every photo-paper print</p></div><button type="button" onClick={onCancel} className="ml-auto grid size-8 place-items-center rounded-md hover:bg-[#faf7ef]" aria-label="Close print settings"><X size={17} /></button></header><div className="p-5"><div className="grid gap-2 sm:grid-cols-2"><PrintSetting label="Printer" value="EPSON L3210 Series" /><PrintSetting label="Paper size" value="A4 · 210 × 297 mm" /><PrintSetting label="Scale" value="Actual Size · 100%" important /><PrintSetting label="Orientation" value="Portrait" /><PrintSetting label="Paper type" value="Epson Photo Quality Ink Jet" important /><PrintSetting label="Quality / color" value="Standard or High · Color" /></div><div className="mt-4 rounded-lg border border-[#eedf8a] bg-[#fffcea] p-3.5 text-[12.5px] leading-5"><strong className="block">How to reach Epson Printer Properties</strong><ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[var(--ink-2)]"><li>In the browser print screen, choose <b>More settings</b>.</li><li>Select <b>Print using system dialog</b> or press <kbd className="rounded border border-[#d8cfb6] bg-white px-1.5 py-0.5 font-semibold text-[var(--ink)]">Ctrl + Shift + P</kbd>.</li><li>Choose the Epson printer, open <b>Preferences / Properties</b>, then select the paper type and quality above.</li></ol></div><p className="mt-3 text-[11.5px] leading-4 text-[var(--ink-3)]">Browsers are not allowed to change printer-driver quality automatically. For the most reliable driver controls, download the PDF, open it in Adobe Acrobat Reader, and print from there.</p></div><footer className="flex flex-wrap justify-end gap-2 border-t border-[var(--border-soft)] bg-[var(--surface-warm)] px-5 py-3"><button type="button" onClick={onCancel} className="h-10 rounded-lg px-3 font-semibold">Cancel</button><button type="button" onClick={onDownload} className="flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 font-semibold"><Download size={15} /> Download for Adobe Reader</button><button type="button" disabled={generating} onClick={onPrint} className="flex h-10 items-center gap-2 rounded-lg bg-[var(--brand)] px-4 font-bold disabled:opacity-60">{generating ? <LoaderCircle className="animate-spin" size={16} /> : <Printer size={16} />} Open print dialog</button></footer></div></div>;
+}
+
+function PrintSetting({ label, value, important = false }: { label: string; value: string; important?: boolean }) {
+  return <div className={`rounded-lg border p-3 ${important ? "border-[#eedf8a] bg-[#fffcea]" : "border-[var(--border-soft)] bg-[var(--surface-warm)]"}`}><span className="block text-[10.5px] font-bold uppercase tracking-[0.05em] text-[var(--ink-3)]">{label}</span><strong className="mt-1 block text-[12.5px]">{value}</strong></div>;
 }
 
 function PhotoSummary({ photo, onReplace, onRemove }: { photo: LoadedPhoto; onReplace: () => void; onRemove: () => void }) { return <div className="mt-2.5 flex items-center gap-3 rounded-[10px] border border-[var(--border-soft)] bg-white p-2.5">{ }<img src={photo.url} alt="Selected customer" className="size-[46px] rounded-[7px] object-cover" /><div className="min-w-0 flex-1"><p className="truncate font-bold">{photo.file.name}</p><p className="measurement mt-1 text-[11px] text-[var(--ink-3)]">{photo.width} × {photo.height} · imported</p></div><button type="button" onClick={onReplace} className="grid size-[30px] place-items-center rounded-md border border-[var(--border-soft)]" aria-label="Replace photo" title="Replace photo"><RotateCcw size={14} /></button><button type="button" onClick={onRemove} className="grid size-[30px] place-items-center rounded-md border border-[#efc0b2] text-[var(--danger)]" aria-label="Remove photo" title="Remove photo"><X size={15} /></button></div>; }
