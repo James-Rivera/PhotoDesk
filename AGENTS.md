@@ -52,6 +52,7 @@ All `/app/*` routes and private resources must require an authenticated, active 
 - Prefer Server Components; add `"use client"` only at interaction boundaries.
 - Keep print math pure and deterministic. Use descriptive domain types and unit tests for every conversion/preset edge case.
 - Components use clear shop-floor English, large targets, obvious progress/error/success states, and desktop-first responsive layouts.
+- Use the global `FeedbackProvider` for confirmations and toast notifications. Never introduce native `window.confirm` or `window.alert`; destructive actions use the branded confirmation dialog and operational errors surface as error toasts.
 - Keep dependencies minimal and license-check model/runtime dependencies before adding them.
 - Do not commit secrets. `.env.example` documents public configuration only.
 - Run `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` after each milestone; fix failures before continuing.
@@ -84,9 +85,18 @@ All `/app/*` routes and private resources must require an authenticated, active 
 - 2026-08-12 — Connected Satoshi 400/500/700 through Fontshare's official webfont API and documented its ITF Free Font License. Font binaries are not self-hosted because the current license restricts independent font serving and redistribution.
 - 2026-08-12 — Added replacement photo backgrounds (original/transparent, white, light blue, or a custom color) for transparent source images; preview and PDF Canvas rendering use the same background. Added mixed Passport + 1×1 quantities with a shelf packer that fills unused space beside passport rows before allocating new 1×1 rows, plus a calculated one-click fill-space offer and overflow recovery. Eleven tests pass, including mixed-row placement and maximum 1×1 capacity.
 - 2026-08-12 — Restored shelf packing for adjustable CJNET Normal quantities. With five 2×2 photos, six existing 1×1 copies now sit beside the fifth photo instead of starting a wasteful new row, and the UI offers six more 1×1 copies to fill the 12-slot gap. Added regression coverage and browser position verification. Added the root README with operator and developer documentation.
+- 2026-08-13 — Milestone 5 implemented with Apache-2.0 MediaPipe Selfie Segmenter behind a replaceable provider. Added local JPG/PNG/WebP processing, progress and errors, checkerboard/white preview, PNG download, Template handoff, and explicit processed-photo Library saving. Added an admin-only maintenance route with authenticated health checks and metadata export, plus a separate database/Storage backup runbook. Automated checks pass; real-portrait quality acceptance, live Supabase security verification, calibration printing, and production deployment remain documented work.
 - 2026-08-13 — Matched CJNET Normal to the shop's Photoshop reference PDF: the four exact 2×2 photos are centered using the maximum equal A4 edge allowance (9.64 pt, approximately 3.4 mm). Darkened and strengthened the default shared cutting guides to 0.5 pt medium gray for more reliable photo-printer output, while keeping thickness adjustable.
 - 2026-08-13 — Added an Epson-focused pre-print checklist covering A4, Actual Size / 100%, Epson Photo Quality Ink Jet media, color quality, and access to Windows Printer Properties through the system dialog. The app still cannot silently change printer-driver settings; staff may download the exact PDF for Adobe Acrobat Reader when full driver controls are needed.
 - 2026-08-13 — Added the dedicated `CJSERVER2` Epson photo-queue setup guide. Passport and mixed Passport + 1×1 layouts now use CJNET Normal's approximately 3.4 mm printer-safe A4 edge allowance and 0.5 pt medium-gray default cutting guides without changing configured photo dimensions or losing the 1×1 space beside five 35 mm passport photos.
+
+- 2026-08-13 — Milestone 3 completed. Added Supabase SSR email/password login, safe cookie refresh through Next.js Proxy, server-side active-profile enforcement for all `/app/*` routes, staff identity/sign-out UI, a deny-by-default RLS `profiles` migration, first-administrator setup documentation, and redirect-safety tests. No service-role key is used or accepted by browser code.
+
+- 2026-08-13 — Milestone 4 completed. Added searchable customer records, multiple private-photo uploads directly from the browser to Supabase Storage, signed thumbnails, rename/delete workflows with confirmation, active-staff RLS for customer/photo rows and Storage objects, and in-memory Library → Template Builder handoff. The private bucket is created and restricted by the second SQL migration.
+
+- 2026-08-13 — Added explicit Template Builder → Customer Library saving. A newly loaded local photo prompts staff to save or dismiss; the save dialog can select an existing customer or create one, then uploads the original photo directly to private Storage. Nothing uploads automatically, and crops/A4 layouts remain local.
+
+- 2026-08-13 — Changed Customer Library discovery to a visual gallery. Each customer card uses the newest private photo as a signed cover preview and shows the photo count; the detail record continues to retain every normal/formal/processed image under one customer.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -3,7 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ImageMinus, Images, LayoutTemplate, LogOut } from "lucide-react";
+import { ImageMinus, Images, LayoutTemplate, Wrench } from "lucide-react";
+import type { StaffProfile } from "@/lib/auth/staff";
+import { signOut } from "@/app/app/actions";
+import { SignOutButton } from "./sign-out-button";
+import { WorkingPhotoProvider } from "./working-photo-context";
+import { LibraryCreateForm } from "./library-create-form";
 
 const navItems = [
   { href: "/app/template", label: "Template Builder", icon: LayoutTemplate },
@@ -14,10 +19,11 @@ const navItems = [
 const pageContext = {
   "/app/template": ["Template Builder", "Build an exact-size A4 photo sheet"],
   "/app/remove-background": ["Remove Background", "Process customer photos on this computer"],
-  "/app/library": ["Customer Library", "Find photos saved for reprints"],
+  "/app/library": ["Customer Library", "Saved photos in the private shop library"],
+  "/app/admin": ["Maintenance", "Admin-only health checks and backup tools"],
 } as const;
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, profile }: { children: React.ReactNode; profile: StaffProfile }) {
   const pathname = usePathname();
   const contextKey = Object.keys(pageContext).find((key) => pathname === key || pathname.startsWith(`${key}/`)) as keyof typeof pageContext | undefined;
   const [title, subtitle] = contextKey ? pageContext[contextKey] : pageContext["/app/template"];
@@ -43,10 +49,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="hidden border-t border-[var(--divider)] p-3 lg:block">
           <div className="flex items-center gap-2.5">
-            <span className="grid size-[30px] place-items-center rounded-full border border-[#eedf8a] bg-[var(--brand-tint)] text-[12px] font-bold">CJ</span>
-            <div className="min-w-0 flex-1"><p className="truncate font-bold">CJNET Staff</p><p className="text-[11px] text-[var(--ink-3)]">Staff</p></div>
+            <span className="grid size-[30px] place-items-center rounded-full border border-[#eedf8a] bg-[var(--brand-tint)] text-[12px] font-bold">
+              {initials(profile.fullName)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold">{profile.fullName}</p>
+              <p className="text-[11px] text-[var(--ink-3)]">
+                @{profile.username} ·{" "}
+                <span className="capitalize">{profile.role}</span>
+              </p>
+            </div>
           </div>
-          <button type="button" disabled title="Available after Supabase authentication" className="mt-3 flex h-[34px] w-full items-center justify-center gap-2 rounded-lg border border-[var(--border-soft)] font-semibold opacity-45"><LogOut size={15} strokeWidth={1.9} /> Sign out</button>
+          {profile.role === "admin" && <Link href="/app/admin" className="mt-3 flex h-[36px] w-full items-center justify-center gap-2 rounded-lg border border-[#dfc846] bg-[var(--brand-tint)] font-bold"><Wrench size={14} /> Admin Maintenance</Link>}
+          <form action={signOut}><SignOutButton /></form>
         </div>
       </aside>
 
@@ -55,9 +70,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <strong className="text-[15px] tracking-[-0.01em]">{title}</strong>
           <span className="mx-3 h-[18px] w-px bg-[var(--border-soft)]" aria-hidden="true" />
           <span className="truncate text-[13px] text-[var(--ink-2)]">{subtitle}</span>
+          {pathname === "/app/library" && <div className="ml-auto pl-4"><LibraryCreateForm /></div>}
         </header>
-        {children}
+        <WorkingPhotoProvider>{children}</WorkingPhotoProvider>
       </div>
     </div>
   );
+}
+
+function initials(name: string) {
+  const value = name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+  return value || "CJ";
 }

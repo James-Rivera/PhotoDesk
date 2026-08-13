@@ -15,12 +15,13 @@ The project is being implemented in milestones.
 | Application shell and print layout engine | Working |
 | Template Builder | Working |
 | Exact A4 PDF generation | Working |
-| Authentication and protected routes | Planned next |
-| Customer Library and private Storage | Planned |
-| Local background removal | Planned |
+| Authentication and protected routes | Working; Supabase project setup required |
+| Customer Library and private Storage | Working; migration setup required |
+| Local background removal | Working; first model download requires internet |
+| Admin maintenance | Working; admin-only health check and metadata export |
 | Calibration page and optional PWA | Planned |
 
-The `/login`, `/app/library`, and `/app/remove-background` screens currently show the intended interface but are not connected to Supabase or a background-removal model yet. Do not deploy this version as an authenticated production system until the authentication and database milestones are complete.
+The `/login` screen is connected to Supabase email/password authentication. Customer Library supports private photos and direct Template Builder handoff. Remove Background now runs MediaPipe locally in the browser and can send its processed PNG to the Template Builder or private Customer Library.
 
 ## Template Builder
 
@@ -68,7 +69,7 @@ The crop dialog supports only the controls needed for ID printing:
 - Reset the crop.
 - Choose **Fill frame** or **Whole photo**.
 
-The same crop transform drives the on-screen preview and the PDF crop. Separate photos and crops can be used for the large and 1×1 sizes.
+The same crop transform drives the on-screen preview and the PDF crop. When **Use same photo for all sizes** is enabled, both the image and main crop are shared by the large and 1×1 copies. Disable it to choose and crop the 1×1 photo separately.
 
 Photo background choices are:
 
@@ -77,7 +78,7 @@ Photo background choices are:
 - Light blue
 - Custom color
 
-Replacement colors show through transparent pixels. They cannot remove the existing background from an opaque JPG; use the Remove Background feature once that milestone is implemented, or provide an already-transparent PNG or WebP.
+Replacement colors show through transparent pixels. They cannot remove the existing background from an opaque JPG; use the Remove Background page first, or provide an already-transparent PNG or WebP.
 
 ### 4. Cutting guides
 
@@ -87,7 +88,9 @@ The recommended default is a medium-gray `0.5 pt` line so ordinary photo printer
 
 ### 5. Download and print
 
-**Download PDF** creates the print-ready file locally. **Print** opens the same generated PDF before invoking the browser print workflow. `Ctrl+P` uses this exact PDF path when the layout is valid.
+**Download PDF** creates the print-ready file locally. The customer name is optional. Downloads use short unique names such as `James-Rivera_Normal_260813-174509.pdf`, or `CJNET_Normal_260813-174509.pdf` when the name is blank. **Print** opens the same generated PDF before invoking the browser print workflow. `Ctrl+P` uses this exact PDF path when the layout is valid.
+
+For a dedicated shop folder, run the optional Windows helper and complete the one-time Brave setting described in [PDF download organization](docs/PDF-DOWNLOADS.md).
 
 Before opening the print dialog, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. Web browsers cannot change Windows printer-driver options automatically. Use **Print using system dialog** (`Ctrl+Shift+P` in Chromium browsers), then open the Epson printer's **Preferences / Properties**. For the most predictable driver access, use **Download for Adobe Reader** and print the PDF from Adobe Acrobat Reader.
 
@@ -116,18 +119,42 @@ All print geometry uses PDF points:
 
 The browser preview may be visually zoomed between 50% and 150%, but preview zoom never affects PDF dimensions. Images are rasterized for their target cells at 300 DPI, then placed at exact point dimensions with `pdf-lib`.
 
+## Customer Library
+
+Authenticated active staff can create, search, rename, and delete customer records; upload multiple JPG, PNG, or WebP photos; and reuse a saved photo in the Template Builder. The main Library is a visual customer gallery: each card uses the newest saved photo as its cover and shows the total photo count. Opening the customer still shows every saved version, so normal-attire and formal-attire photos remain together. Files upload directly from the browser to the private `customer-photos` Supabase bucket. Vercel does not receive or transform the image body.
+
+Inside the Template Builder, **Choose from Customer Library** opens a searchable private-photo picker. Selecting a photo loads it directly into the current sheet without navigating through the customer-detail page.
+
+Thumbnails use one-hour signed URLs. Database and Storage RLS grant access only to active staff, and destructive actions require confirmation. The handoff to Template Builder downloads the authorized private object into temporary browser memory; it does not create another Storage copy.
+
+After a local photo is added to the Template Builder, PhotoDesk offers an optional **Save to Library** prompt. Staff can choose an existing customer or create a new customer in place. Only an explicit confirmation uploads the original source photo; the crop and A4 layout remain temporary and local.
+
+## Remove Background
+
+Open `/app/remove-background`, upload or drop a JPG, PNG, or WebP portrait, and choose **Remove background**. The Apache-2.0 MediaPipe Selfie Segmenter runs on the staff computer. The model is downloaded on first use and cached by the browser; customer image pixels are not sent to an image-processing API.
+
+The result can be previewed over a checkerboard and kept transparent, composited over pure white, light blue, soft gray, or any custom color. The chosen output can be downloaded as a PNG, sent directly to the Template Builder, or explicitly saved to the private Customer Library as a `processed` photo. Check hair, ears, and shoulders before printing because automatic segmentation is not perfect.
+
+## Admin maintenance
+
+Administrators have a **Maintenance** link below their staff profile. `/app/admin` checks authenticated database access, shows customer and photo-record counts, and exports non-secret customer/photo metadata as JSON. The export is useful for audits, but it is not a complete backup because it contains neither Auth users nor private Storage image bytes.
+
+Full database and Storage recovery procedures are documented in [Admin maintenance and backups](docs/ADMIN-MAINTENANCE.md). Backup credentials must stay in the Supabase Dashboard or an administrator's terminal; they must never be added to browser code or `NEXT_PUBLIC_*` variables.
+
 ## Architecture
 
 - [Next.js](https://nextjs.org/) App Router and React
 - TypeScript strict mode
 - Tailwind CSS 4
 - Browser Canvas for crop rasterization
+- Apache-2.0 MediaPipe Selfie Segmenter for local background removal
 - [`pdf-lib`](https://pdf-lib.js.org/) for exact client-side PDF generation
-- Vitest for print-layout tests
+- Supabase Auth with cookie-based server rendering and RLS-protected staff profiles
+- Vitest for print-layout and redirect-safety tests
 - Lucide for interface icons
 - Satoshi loaded through Fontshare's official API
 
-The planned online data layer is Supabase Auth, PostgreSQL with Row Level Security, and private Supabase Storage. No service-role key may be exposed to the browser.
+The online data layer uses Supabase Auth and PostgreSQL Row Level Security. Private Supabase Storage arrives with the Customer Library milestone. No service-role key may be exposed to the browser.
 
 ### Important directories
 
@@ -136,10 +163,17 @@ src/
   app/                         Next.js routes and layouts
   components/                  Application shell and Template Builder UI
   lib/images/crop.ts           Canvas crop and background rendering
+  lib/background-removal/      Replaceable local segmentation provider
   lib/layout/                  Physical units, presets, and layout engines
   lib/pdf/photo-sheet.ts       Exact A4 PDF generation and cutting guides
+  lib/supabase/                Browser/server clients and session refresh
+  lib/auth/                    Active staff checks and safe redirects
 public/assets/                 CJNET logo assets
 docs/FONT-LICENSES.md          Font usage and licensing notes
+docs/SUPABASE-AUTH-SETUP.md    Authentication setup and first-admin guide
+docs/ADMIN-MAINTENANCE.md      Backup and maintenance runbook
+docs/INCOMPLETE-WORK.md        Honest remaining-work checklist
+supabase/migrations/           Database schema and RLS migrations
 AGENTS.md                      Product, architecture, and implementation rules
 ```
 
@@ -159,7 +193,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000/app/template](http://localhost:3000/app/template).
+Configure Supabase as described in [Supabase authentication setup](docs/SUPABASE-AUTH-SETUP.md), then open [http://localhost:3000/app/template](http://localhost:3000/app/template).
 
 ### Verification commands
 
@@ -174,13 +208,11 @@ Use `npm run test:watch` while changing the layout engine.
 
 ## Environment variables
 
-No environment variables are needed for the current local Template Builder.
-
-The supplied `.env.example` reserves the public Supabase variables needed by the authentication and Library milestones:
+Copy `.env.example` to `.env.local` and provide the public Supabase configuration:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 ```
 
 Never place a Supabase service-role key in a `NEXT_PUBLIC_*` variable or commit it to Git.
@@ -191,10 +223,10 @@ The application is designed for Vercel:
 
 1. Import the GitHub repository into Vercel.
 2. Keep the detected Next.js build settings.
-3. Add the public Supabase environment variables after the Supabase milestone is implemented.
+3. Add the public Supabase environment variables from `.env.example`.
 4. Deploy.
 
-Until authentication is implemented, `/app/*` routes are not production-protected. Treat the current deployment as a development preview only.
+Apply the database migration and create the first active administrator before staff use. See [Supabase authentication setup](docs/SUPABASE-AUTH-SETUP.md).
 
 ## Fonts and offline behavior
 
@@ -204,17 +236,14 @@ If Fontshare is unavailable, the interface falls back to Segoe UI and Arial. The
 
 ## Known limitations
 
-- Supabase authentication is not connected yet.
-- `/app/*` routes are not protected yet.
-- Customer records and private photo Storage are not implemented yet.
-- The Remove Background screen does not run a model yet.
-- Background replacement requires transparent pixels; it does not remove an opaque background.
+- Background removal is optimized for a single prominent person and may need an edited source when hair or clothing blends into the backdrop.
+- Initial background-model and WebAssembly loading requires internet. Processing occurs on the main browser thread and can briefly use substantial CPU/GPU on older shop computers.
 - Temporary photos exist only in the current browser session and are not restored after a reload.
+- The admin JSON export is metadata only; complete database, Auth, and private Storage recovery remains an operator procedure.
 - The printable calibration page is still pending.
+- Optional PWA/offline installation is still pending.
 
-## Next milestone
-
-Milestone 3 adds Supabase email/password authentication, active staff-profile checks, route protection, and secure session handling. After that, the Customer Library will add PostgreSQL records, Row Level Security, and private authenticated photo Storage.
+See [Incomplete work](docs/INCOMPLETE-WORK.md) for the complete prioritized list.
 
 ## License
 

@@ -1,5 +1,5 @@
-import { PageHeading } from "@/components/page-heading";
+import { RemoveBackgroundWorkspace } from "@/components/remove-background-workspace";
 
 export default function RemoveBackgroundPage() {
-  return <div className="mx-auto max-w-[760px] p-5 pt-16"><PageHeading eyebrow="Local image tool" title="Remove Background" description="Create a transparent or pure-white background without sending the customer photo to an external image API." /><div className="mt-7 rounded-xl border-[1.5px] border-dashed border-[#d5cdb6] bg-[var(--surface-warm)] px-8 py-14 text-center"><p className="text-[17px] font-bold">Drag an image here to remove the background</p><p className="mt-2 text-[13.5px] text-[var(--ink-2)]">Local background removal arrives in milestone 5 after its model license and browser performance are verified.</p><span className="measurement mt-4 block text-[11px] text-[var(--ink-3)]">JPG · PNG · WEBP · up to 20 MB</span></div><div className="mt-4 rounded-[10px] border border-[#f0e3bc] bg-[#fffaed] p-4 text-[13px] leading-[1.55] text-[var(--ink-2)]"><strong className="block text-[var(--ink)]">Processing happens on this computer</strong>Customer photos will not be uploaded to an external image service.</div></div>;
+  return <RemoveBackgroundWorkspace />;
 }
