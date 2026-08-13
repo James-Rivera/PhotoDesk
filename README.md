@@ -88,13 +88,13 @@ The recommended default is a medium-gray `0.5 pt` line so ordinary photo printer
 
 ### 5. Download and print
 
-**Download PDF** creates the print-ready file locally. The customer name is optional. Downloads use short unique names such as `James-Rivera_Normal_260813-174509.pdf`, or `CJNET_Normal_260813-174509.pdf` when the name is blank. **Print** opens the same generated PDF before invoking the browser print workflow. `Ctrl+P` uses this exact PDF path when the layout is valid.
+**Download PDF** creates the exact-dimension print file locally. The customer name is optional. Downloads use short unique names such as `James-Rivera_Normal_260813-174509.pdf`, or `CJNET_Normal_260813-174509.pdf` when the name is blank. **Print** prepares a matching 300-DPI A4 sheet for the native Windows helper. `Ctrl+P` follows the same Print workflow when the layout is valid.
 
 For a dedicated shop folder, run the optional Windows helper and complete the one-time Brave setting described in [PDF download organization](docs/PDF-DOWNLOADS.md).
 
-Before opening the print dialog, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. Web browsers cannot change Windows printer-driver options automatically. Use **Print using system dialog** (`Ctrl+Shift+P` in Chromium browsers), then open the Epson printer's **Preferences / Properties**. For the most predictable driver access, use **Download for Adobe Reader** and print the PDF from Adobe Acrobat Reader.
+Before opening the Windows helper, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. The helper opens the selected printer's real Windows settings because paper media and photo quality remain driver-specific. Adobe Acrobat Reader and browser printing remain fallback paths for the exact PDF.
 
-For the normal staff workflow, run `CJNET-Print-Helper-Setup.exe` once per workstation as described in [CJNET Windows Print Helper](docs/WINDOWS-PRINT-HELPER.md). Staff do not need VS Code or developer tools. PhotoDesk opens a focused helper window with the exact A4 preview, a printer selector, copies defaulted to 1, a direct Printer Properties button, and a Print button. Browser printing and PDF download remain fallbacks.
+For the normal staff workflow, run `CJNET-Print-Helper-Setup.exe` once per workstation as described in [CJNET Windows Print Helper](docs/WINDOWS-PRINT-HELPER.md). Staff do not need VS Code or developer tools. PhotoDesk opens a native helper window with the A4 preview, a printer selector, copies defaulted to 1, direct Printer settings, and one clear Print button. The helper does not use Edge or WebView2. Browser printing and PDF download remain fallbacks.
 
 For the recommended one-choice shop workflow, see [Epson photo queue setup](docs/EPSON-PHOTO-QUEUE-SETUP.md).
 

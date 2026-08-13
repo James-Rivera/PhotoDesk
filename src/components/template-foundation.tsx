@@ -217,11 +217,10 @@ export function TemplateFoundation() {
     setCounts((current) => ({ ...current, [key]: Math.max(0, Math.min(99, current[key] + delta)) }));
   }
 
-  async function makePdf() {
+  function getPhotoSheetOptions() {
     if (!photo) throw new Error("Choose a customer photo first.");
-    const { generatePhotoSheetPdf } = await import("@/lib/pdf/photo-sheet");
     const smallSource = !sameForAll && smallPhoto ? smallPhoto : photo;
-    return generatePhotoSheetPdf({
+    return {
       layout,
       sources: {
         primary: { image: photo.image, crop: crops.big },
@@ -232,7 +231,17 @@ export function TemplateFoundation() {
       borderColor,
       borderThickness,
       backgroundColor: photoBackground,
-    });
+    };
+  }
+
+  async function makePdf() {
+    const { generatePhotoSheetPdf } = await import("@/lib/pdf/photo-sheet");
+    return generatePhotoSheetPdf(getPhotoSheetOptions());
+  }
+
+  async function makeNativePrintSheet() {
+    const { generateNativePrintSheet } = await import("@/lib/printing/photo-sheet-raster");
+    return generateNativePrintSheet(getPhotoSheetOptions());
   }
 
   async function downloadPdf() {
@@ -251,15 +260,15 @@ export function TemplateFoundation() {
   async function printPdf() {
     setGenerating("print"); setError(null);
     try {
-      const bytes = await makePdf();
+      const bytes = await makeNativePrintSheet();
       await openNativePrintDialog(Uint8Array.from(bytes));
       setShowPrintGuide(false);
-      setNotice("Windows print dialog opened. Select Epson, then open Preferences for photo-paper quality.");
+      setNotice("Windows print window opened. Choose the printer, check its settings, then select Print.");
     } catch (cause) {
       if (cause instanceof PrintHelperPairingError) {
         setPrintHelper((current) => ({ ...current, paired: false }));
         setError(cause.message);
-      } else setError(pdfError(cause));
+      } else setError(printError(cause));
     } finally { setGenerating(null); }
   }
 
@@ -396,4 +405,5 @@ function Stepper({ label, value, onMinus, onPlus }: { label: string; value: numb
 function NumberField({ label, value, min, step = 0.1, onChange }: { label: string; value: number; min: number; step?: number; onChange: (value: number) => void }) { return <label><span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.04em] text-[var(--ink-3)]">{label}</span><input type="number" value={value} min={min} step={step} onChange={(event) => onChange(Math.max(min, Number(event.target.value) || min))} className="h-[38px] w-full rounded-lg border border-[var(--border)] bg-white px-2.5" /></label>; }
 async function loadPhoto(file: File): Promise<LoadedPhoto> { if (!ALLOWED_TYPES.has(file.type)) throw new Error("Use a JPG, PNG, or WebP image."); if (file.size > MAX_FILE_BYTES) throw new Error("This image is larger than 20 MB. Choose a smaller file."); const url = URL.createObjectURL(file); const image = new Image(); image.src = url; try { await image.decode(); } catch { URL.revokeObjectURL(url); throw new Error("The image could not be opened. Try exporting it again as JPG or PNG."); } return { file, url, image, width: image.naturalWidth, height: image.naturalHeight }; }
 function pdfError(cause: unknown) { const detail = cause instanceof Error ? cause.message : "Unknown PDF error."; return `The PDF could not be prepared: ${detail} Nothing was lost—your layout is still here. Try again; if it fails twice, use Print instead.`; }
+function printError(cause: unknown) { const detail = cause instanceof Error ? cause.message : "Unknown print preparation error."; return `The print sheet could not be prepared: ${detail} Nothing was lost—your layout is still here.`; }
 function clamp(value: number, min: number, max: number) { return Math.min(max, Math.max(min, value)); }

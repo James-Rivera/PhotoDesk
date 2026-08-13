@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:print-helper": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-print-helper.ps1",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -29,13 +29,13 @@ export async function pairPrintHelper(code: string) {
   window.localStorage.setItem(TOKEN_KEY, result.token);
 }
 
-export async function openNativePrintDialog(pdfBytes: Uint8Array) {
+export async function openNativePrintDialog(sheetBytes: Uint8Array) {
   const token = getStoredToken();
   if (!token) throw new PrintHelperPairingError("Pair this computer with CJNET Print Helper first.");
   const response = await fetch(`${HELPER_ORIGIN}/print-dialog`, {
     method: "POST",
-    headers: { "Content-Type": "application/pdf", "X-CJNET-Print-Token": token },
-    body: new Blob([Uint8Array.from(pdfBytes)], { type: "application/pdf" }),
+    headers: { "Content-Type": "image/png", "X-CJNET-Print-Token": token },
+    body: new Blob([Uint8Array.from(sheetBytes)], { type: "image/png" }),
   });
   await readResult(response);
 }

@@ -38,9 +38,36 @@ export async function renderCropToPng(
   const context = canvas.getContext("2d", { alpha: true });
   if (!context) throw new Error("Canvas is not available in this browser.");
 
+  drawCropToCanvas(context, image, { x: 0, y: 0, width, height }, crop, backgroundColor);
+
+  return canvasToPngBytes(canvas);
+}
+
+export interface CanvasCropRectangle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function drawCropToCanvas(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  rectangle: CanvasCropRectangle,
+  crop: CropTransform,
+  backgroundColor: string | null = null,
+) {
+  const { x, y, width, height } = rectangle;
+  if (width <= 0 || height <= 0) return;
+
+  context.save();
+  context.beginPath();
+  context.rect(x, y, width, height);
+  context.clip();
+
   if (backgroundColor) {
     context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, width, height);
+    context.fillRect(x, y, width, height);
   }
 
   const baseScale = crop.fitMode === "cover"
@@ -50,15 +77,16 @@ export async function renderCropToPng(
   const renderedHeight = image.naturalHeight * baseScale;
   const zoom = crop.zoom / 100;
 
-  context.save();
-  context.translate(width / 2, height / 2);
+  context.translate(x + width / 2, y + height / 2);
   context.scale(zoom, zoom);
   context.translate((crop.dx / 100) * width, (crop.dy / 100) * height);
   context.drawImage(image, -renderedWidth / 2, -renderedHeight / 2, renderedWidth, renderedHeight);
   context.restore();
+}
 
+export async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Could not prepare the photo for PDF output.")), "image/png");
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Could not prepare the print image.")), "image/png");
   });
   return new Uint8Array(await blob.arrayBuffer());
 }

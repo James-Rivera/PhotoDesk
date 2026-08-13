@@ -1,5 +1,6 @@
 param(
-  [string]$DotnetExecutable = "dotnet"
+  [string]$DotnetExecutable = "dotnet",
+  [string]$NsisExecutable = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,15 +14,15 @@ $installer = Join-Path $projectRoot "print-helper\CJNET-Print-Helper-Setup.exe"
 if (Test-Path $dist) { Remove-Item -LiteralPath $dist -Recurse -Force }
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 if (Test-Path $installer) { Remove-Item -LiteralPath $installer -Force }
-& $DotnetExecutable publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $app
+& $DotnetExecutable publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o $app
 if ($LASTEXITCODE -ne 0) { throw ".NET publish failed." }
 Copy-Item (Join-Path $projectRoot "print-helper\Install-CJNET-Print-Helper.ps1") $dist
 Copy-Item (Join-Path $projectRoot "print-helper\Uninstall-CJNET-Print-Helper.ps1") $dist
 Copy-Item (Join-Path $projectRoot "docs\WINDOWS-PRINT-HELPER.md") $dist
 Compress-Archive -Path (Join-Path $dist "*") -DestinationPath $archive
 
-$makensisCommand = Get-Command makensis.exe -ErrorAction SilentlyContinue
-$compilerPath = if ($makensisCommand) { $makensisCommand.Source } else { $null }
+$makensisCommand = if ($NsisExecutable) { $null } else { Get-Command makensis.exe -ErrorAction SilentlyContinue }
+$compilerPath = if ($NsisExecutable) { (Resolve-Path $NsisExecutable).Path } elseif ($makensisCommand) { $makensisCommand.Source } else { $null }
 if (-not $compilerPath) {
   $fallbackCompiler = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
   if (Test-Path $fallbackCompiler) { $compilerPath = $fallbackCompiler }

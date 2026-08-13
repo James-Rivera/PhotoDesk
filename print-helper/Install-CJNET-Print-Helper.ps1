@@ -9,7 +9,6 @@ if (-not (Test-Path (Join-Path $source "CJNET.PrintHelper.exe"))) { throw "Extra
 Get-Process "CJNET.PrintHelper" -ErrorAction SilentlyContinue | Stop-Process -Force
 New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
 Copy-Item -LiteralPath (Join-Path $source "CJNET.PrintHelper.exe") -Destination $installRoot -Force
-Copy-Item -LiteralPath (Join-Path $source "WebView2Loader.dll") -Destination $installRoot -Force
 
 $shell = New-Object -ComObject WScript.Shell
 foreach ($shortcutPath in @($startMenu, $startup)) {

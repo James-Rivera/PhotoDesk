@@ -10,6 +10,11 @@
 # production and test output
 /build
 /coverage
+/.dotnet-sdk/
+/.dotnet-cli-home/
+/dotnet-install.ps1
+/.nsis-portable/
+/nsis-*.zip
 
 # local files
 .DS_Store

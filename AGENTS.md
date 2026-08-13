@@ -103,6 +103,8 @@ All `/app/*` routes and private resources must require an authenticated, active 
 
 - 2026-08-13 — Changed Customer Library discovery to a visual gallery. Each customer card uses the newest private photo as a signed cover preview and shows the photo count; the detail record continues to retain every normal/formal/processed image under one customer.
 
+- 2026-08-13 — Replaced the Windows Print Helper's Edge WebView2 PDF viewer and printing path with a native WinForms A4 preview and `PrintDocument` pipeline. PhotoDesk now prepares a matching 300-DPI `2480 × 3508` print sheet from the same point-based layout used by the exact PDF, while the helper validates the raster, compensates for driver hard margins, exposes the selected printer's real settings, and presents one clear Print action. Added browser unit coverage and a printer-free .NET simulation suite; the app checks, native build, ZIP, and NSIS setup package pass without WebView2 files.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
