@@ -28,7 +28,8 @@ if (-not $compilerPath) {
 }
 if (-not $compilerPath) { throw "NSIS is required. Install it with: winget install --id NSIS.NSIS --exact" }
 $installerScript = Join-Path $projectRoot "print-helper\installer.nsi"
-& $compilerPath "/DSOURCE_DIR=$app" "/DOUTPUT_FILE=$installer" $installerScript
+$icon = Join-Path $projectRoot "print-helper\CJNET.PrintHelper\CJNET.ico"
+& $compilerPath "/DSOURCE_DIR=$app" "/DOUTPUT_FILE=$installer" "/DICON_FILE=$icon" $installerScript
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw "NSIS did not create the installer executable." }
 
 Write-Host "Created $archive" -ForegroundColor Green

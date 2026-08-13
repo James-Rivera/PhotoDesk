@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -26,7 +27,7 @@ internal static class Program
 
 internal sealed class HelperContext : ApplicationContext
 {
-    internal const string Version = "0.1.0";
+    internal const string Version = "0.1.1";
     internal const int Port = 17421;
     internal const int MaxPdfBytes = 30 * 1024 * 1024;
 
@@ -47,7 +48,7 @@ internal sealed class HelperContext : ApplicationContext
         dispatcher.CreateControl();
         trayIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
             Text = "CJNET Print Helper",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
@@ -273,7 +274,7 @@ internal sealed class HelperContext : ApplicationContext
         base.ExitThreadCore();
     }
 
-    private sealed record PairRequest(string Code);
+    private sealed record PairRequest([property: JsonPropertyName("code")] string Code);
 }
 
 internal sealed class PrintWindow : Form

@@ -11,6 +11,8 @@ SetCompressor /SOLID lzma
 
 Name "CJNET Print Helper"
 OutFile "${OUTPUT_FILE}"
+Icon "${ICON_FILE}"
+UninstallIcon "${ICON_FILE}"
 InstallDir "$LOCALAPPDATA\CJNET\PrintHelper"
 ShowInstDetails show
 ShowUninstDetails show
