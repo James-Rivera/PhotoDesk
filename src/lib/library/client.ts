@@ -13,6 +13,7 @@ export interface LibraryPhotoChoice {
   filename: string;
   mimeType: string;
   variant: "original" | "processed";
+  createdAt: string;
   signedUrl: string | null;
 }
 
@@ -27,7 +28,7 @@ export async function listLibraryPhotoChoices(): Promise<LibraryPhotoChoice[]> {
   const supabase = createClient();
   const [{ data: customers, error: customerError }, { data: photos, error: photoError }] = await Promise.all([
     supabase.from("customers").select("id, full_name").order("full_name").limit(200),
-    supabase.from("photos").select("id, customer_id, storage_path, variant, original_filename, mime_type").order("created_at", { ascending: false }).limit(500),
+    supabase.from("photos").select("id, customer_id, storage_path, variant, original_filename, mime_type, created_at").order("created_at", { ascending: false }).limit(500),
   ]);
   if (customerError || photoError) throw new Error("Could not load the Customer Library.");
   const paths = (photos ?? []).map((photo) => photo.storage_path);
@@ -47,6 +48,7 @@ export async function listLibraryPhotoChoices(): Promise<LibraryPhotoChoice[]> {
       filename: photo.original_filename,
       mimeType: photo.mime_type,
       variant: photo.variant as "original" | "processed",
+      createdAt: photo.created_at,
       signedUrl: signedByPath.get(photo.storage_path) ?? null,
     }];
   });

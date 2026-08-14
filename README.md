@@ -210,14 +210,18 @@ Use `npm run test:watch` while changing the layout engine.
 
 ## Environment variables
 
-Copy `.env.example` to `.env.local` and provide the public Supabase configuration:
+Copy `.env.example` to `.env.local` and provide the Supabase and server-only security configuration:
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+AUTH_RATE_LIMIT_SECRET=
+RESEND_API_KEY=
+PASSWORD_HELP_FROM_EMAIL=CJNET PhotoDesk <password-help@your-verified-domain.example>
+PASSWORD_HELP_ADMIN_EMAIL=jamescarlorivera52@gmail.com
 ```
 
-Never place a Supabase service-role key in a `NEXT_PUBLIC_*` variable or commit it to Git.
+Never place a Supabase service-role key or any server-only secret in a `NEXT_PUBLIC_*` variable or commit it to Git. See [Supabase authentication setup](docs/SUPABASE-AUTH-SETUP.md) for the rate-limit migration and Resend configuration.
 
 ## Deployment
 
@@ -225,7 +229,7 @@ The application is designed for Vercel:
 
 1. Import the GitHub repository into Vercel.
 2. Keep the detected Next.js build settings.
-3. Add the public Supabase environment variables from `.env.example`.
+3. Add all environment variables from `.env.example`, keeping the rate-limit and email values server-only.
 4. Deploy.
 
 Apply the database migration and create the first active administrator before staff use. See [Supabase authentication setup](docs/SUPABASE-AUTH-SETUP.md).

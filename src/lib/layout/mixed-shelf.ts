@@ -11,10 +11,43 @@ export interface MixedShelfRequest {
   smallSourceKey?: string;
 }
 
+export interface MixedShelfCustomer {
+  sourcePrefix: string;
+  bigQuantity: number;
+  smallQuantity: number;
+}
+
+export interface CustomerMixedShelfRequest extends Omit<MixedShelfRequest, "bigQuantity" | "smallQuantity" | "bigSourceKey" | "smallSourceKey"> {
+  customers: MixedShelfCustomer[];
+}
+
 interface Shelf { y: number; height: number; usedWidth: number; row: number }
 
 export function arrangeMixedShelves(request: MixedShelfRequest): LayoutResult {
   validate(request);
+  return arrangeMixedSourceShelves(request, {
+    big: Array.from({ length: request.bigQuantity }, () => request.bigSourceKey ?? "big"),
+    small: Array.from({ length: request.smallQuantity }, () => request.smallSourceKey ?? "small"),
+  });
+}
+
+export function arrangeCustomerMixedShelves(request: CustomerMixedShelfRequest): LayoutResult {
+  if (request.customers.some((customer) => !customer.sourcePrefix.trim() || !Number.isFinite(customer.bigQuantity) || !Number.isFinite(customer.smallQuantity) || customer.bigQuantity < 0 || customer.smallQuantity < 0)) {
+    throw new RangeError("Customer source keys and quantities must be valid.");
+  }
+  const bigQuantity = request.customers.reduce((sum, customer) => sum + customer.bigQuantity, 0);
+  const smallQuantity = request.customers.reduce((sum, customer) => sum + customer.smallQuantity, 0);
+  validate({ ...request, bigQuantity, smallQuantity });
+  return arrangeMixedSourceShelves(
+    { ...request, bigQuantity, smallQuantity },
+    {
+      big: request.customers.flatMap((customer) => Array.from({ length: customer.bigQuantity }, () => `${customer.sourcePrefix}-big`)),
+      small: request.customers.flatMap((customer) => Array.from({ length: customer.smallQuantity }, () => `${customer.sourcePrefix}-small`)),
+    },
+  );
+}
+
+function arrangeMixedSourceShelves(request: MixedShelfRequest, sources: { big: string[]; small: string[] }): LayoutResult {
   const left = request.margins.left;
   const top = request.margins.top;
   const contentWidth = Math.max(0, request.page.width - request.margins.left - request.margins.right);
@@ -31,7 +64,8 @@ export function arrangeMixedShelves(request: MixedShelfRequest): LayoutResult {
   while (remainingBig > 0 && bigPerRow > 0 && y + request.big.height <= bottom + 0.0001) {
     const count = Math.min(remainingBig, bigPerRow);
     for (let column = 0; column < count; column += 1) {
-      placed.push({ id: `big-${request.bigQuantity - remainingBig + column}`, sourceKey: request.bigSourceKey ?? "big", ...request.big, x: left + column * request.big.width, y, row });
+      const index = request.bigQuantity - remainingBig + column;
+      placed.push({ id: `big-${index}`, sourceKey: sources.big[index], ...request.big, x: left + column * request.big.width, y, row });
     }
     shelves.push({ y, height: request.big.height, usedWidth: count * request.big.width, row });
     remainingBig -= count;
@@ -48,7 +82,7 @@ export function arrangeMixedShelves(request: MixedShelfRequest): LayoutResult {
       for (let column = 0; column < columns && remainingSmall > 0; column += 1) {
         placed.push({
           id: `small-${request.smallQuantity - remainingSmall}`,
-          sourceKey: request.smallSourceKey ?? "small",
+          sourceKey: sources.small[request.smallQuantity - remainingSmall],
           ...request.small,
           x: left + shelf.usedWidth + column * request.small.width,
           y: shelf.y + smallRow * request.small.height,
@@ -63,7 +97,8 @@ export function arrangeMixedShelves(request: MixedShelfRequest): LayoutResult {
   while (remainingSmall > 0 && smallPerRow > 0 && y + request.small.height <= bottom + 0.0001) {
     const count = Math.min(remainingSmall, smallPerRow);
     for (let column = 0; column < count; column += 1) {
-      placed.push({ id: `small-${request.smallQuantity - remainingSmall + column}`, sourceKey: request.smallSourceKey ?? "small", ...request.small, x: left + column * request.small.width, y, row });
+      const index = request.smallQuantity - remainingSmall + column;
+      placed.push({ id: `small-${index}`, sourceKey: sources.small[index], ...request.small, x: left + column * request.small.width, y, row });
     }
     remainingSmall -= count;
     y += request.small.height;
@@ -71,8 +106,8 @@ export function arrangeMixedShelves(request: MixedShelfRequest): LayoutResult {
   }
 
   const overflow: LayoutItem[] = [
-    ...Array.from({ length: remainingBig }, (_, index) => ({ id: `big-overflow-${index}`, sourceKey: request.bigSourceKey ?? "big", ...request.big })),
-    ...Array.from({ length: remainingSmall }, (_, index) => ({ id: `small-overflow-${index}`, sourceKey: request.smallSourceKey ?? "small", ...request.small })),
+    ...Array.from({ length: remainingBig }, (_, index) => ({ id: `big-overflow-${index}`, sourceKey: sources.big[request.bigQuantity - remainingBig + index], ...request.big })),
+    ...Array.from({ length: remainingSmall }, (_, index) => ({ id: `small-overflow-${index}`, sourceKey: sources.small[request.smallQuantity - remainingSmall + index], ...request.small })),
   ];
   return { placed, overflow, fits: overflow.length === 0, content: { width: contentWidth, height: contentHeight } };
 }

@@ -14,6 +14,7 @@ Run these migrations in order in the Supabase SQL Editor, or apply them with the
 
 1. [`202608130001_profiles_and_staff_auth.sql`](../supabase/migrations/202608130001_profiles_and_staff_auth.sql)
 2. [`202608130002_customer_library.sql`](../supabase/migrations/202608130002_customer_library.sql)
+3. [`202608140001_auth_rate_limits.sql`](../supabase/migrations/202608140001_auth_rate_limits.sql)
 
 The migration creates:
 
@@ -22,6 +23,8 @@ The migration creates:
 - A reusable `is_active_staff()` database helper for later Customer Library policies.
 
 The second migration creates the customer/photo tables, search indexes, active-staff RLS policies, and the private `customer-photos` Storage bucket. It limits uploads to JPG, PNG, and WebP files no larger than 20 MB.
+
+The third migration creates hashed rate-limit counters. PhotoDesk allows five attempts per staff email and 30 attempts per network address in 15 minutes. A successful login clears the email counter. Password-help requests are limited to three per staff email and ten per network address per hour. Raw email and IP values are never stored in the rate-limit table.
 
 New profiles are deliberately inactive. This prevents a newly created or accidentally invited account from entering the app until an administrator approves it.
 
@@ -49,11 +52,19 @@ Copy `.env.example` to `.env.local` and fill in the project's **Project URL** an
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+AUTH_RATE_LIMIT_SECRET=GENERATE_A_LONG_RANDOM_SECRET
+RESEND_API_KEY=re_YOUR_SERVER_ONLY_KEY
+PASSWORD_HELP_FROM_EMAIL=CJNET PhotoDesk <password-help@YOUR_VERIFIED_DOMAIN>
+PASSWORD_HELP_ADMIN_EMAIL=jamescarlorivera52@gmail.com
 ```
 
 Older Supabase projects may provide a legacy anon key. `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as a fallback. Never use the secret/service-role key in either variable.
 
 Restart `npm run dev` after changing environment variables.
+
+`AUTH_RATE_LIMIT_SECRET` should be a unique random value of at least 32 characters. Keep it stable across deployments so the same attempt maps to the same hashed counter.
+
+Password-help notifications use Resend's server-side Email API. Verify the sending domain in Resend, create an API key with sending permission, and set `PASSWORD_HELP_FROM_EMAIL` to an address on that domain. The admin recipient defaults to `jamescarlorivera52@gmail.com`; the environment variable makes it explicit and replaceable. Neither email secret is exposed to the browser. If email delivery is not configured or fails, the login screen tells the staff member to contact the administrator directly.
 
 ## 5. Verify access
 
@@ -73,6 +84,10 @@ Add these variables to the Production, Preview, and Development environments as 
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `AUTH_RATE_LIMIT_SECRET`
+- `RESEND_API_KEY`
+- `PASSWORD_HELP_FROM_EMAIL`
+- `PASSWORD_HELP_ADMIN_EMAIL`
 
 Redeploy after saving them. No service-role variable is required for this milestone.
 
@@ -83,3 +98,4 @@ Redeploy after saving them. No service-role variable is required for this milest
 - RLS allows authenticated users to select only their own profile.
 - The Customer Library uses `is_active_staff()` in every customer, photo, and Storage policy.
 - Supabase Auth and profile checks require internet. An already loaded local Template Builder can continue its browser-only image and PDF work, but a fresh protected-page load requires authentication.
+- Login and password-help rate limiting is enforced by atomic database functions, so it remains shared across Vercel instances.
