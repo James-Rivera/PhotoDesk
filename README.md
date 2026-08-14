@@ -25,7 +25,24 @@ The `/login` screen is connected to Supabase email/password authentication. Cust
 
 ## Template Builder
 
-Open `/app/template` to use the current working feature.
+Open `/app/template` to use the current working feature. The mode switch at the top keeps the existing **ID Photos** workflow as the usual default and provides a separate **Photo Prints** workflow for regular photo sizes.
+
+### Photo Prints mode
+
+Photo Prints lets staff combine different source photos and physical sizes on one A4 sheet without manually positioning rectangles:
+
+1. Add a JPG, PNG, or WebP from the computer or private Customer Library.
+2. Choose CR80 / Wallet ID (`53.98 × 85.60 mm`), Cute Size (`2 × 3 in`), 2R Photo (`2.5 × 3.5 in`), 3R (`3.5 × 5 in`), 4R (`4 × 6 in`), 5R (`5 × 7 in`), 6R (`6 × 8 in`), 8R (`8 × 10 in`), or a custom size in inches, millimeters, or centimeters.
+3. Choose portrait or landscape, set copies, and adjust the independent crop.
+4. Add the photo to the A4 sheet and repeat for other photos.
+
+As soon as a photo and size are selected, the A4 preview includes the pending print at its exact proportion and packed position. A yellow dashed outline and **not added yet** status distinguish this live draft from committed photo items. Size, orientation, quantity, and crop changes update it immediately. If the draft would overflow A4, PhotoDesk explains how many prints do not fit and disables **Add to A4 sheet** until the selection is corrected. Download and Print also remain disabled while a draft is waiting to be added.
+
+The cut-friendly mixed-photo packer considers larger photos first, then places exact-size rectangles from left to right and top to bottom. It never rotates, shrinks, or omits a requested print. Jobs with copies that do not fit are marked and printing stays disabled until staff edit or remove them. The queue stays in browser memory unless **Save photo to Library** is explicitly selected.
+
+The preview summary distinguishes **photo items** from physical **prints**. Two photo items set to one copy each produce two prints; increasing either item to two copies increases the print total accordingly.
+
+On desktop, the top mode switch and bottom print bar stay visible. The controls and A4 preview scroll independently, preventing the browser-level scrolling that previously shifted the entire Builder workspace.
 
 ### 1. Choose a photo
 

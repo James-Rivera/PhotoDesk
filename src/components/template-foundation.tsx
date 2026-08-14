@@ -32,6 +32,7 @@ import { LibraryPhotoPickerDialog } from "@/components/library-photo-picker-dial
 import { buildPdfDownloadName } from "@/lib/pdf/download-name";
 import { getPrintHelperHealth, openNativePrintDialog, pairPrintHelper, PrintHelperPairingError, type PrintHelperHealth } from "@/lib/printing/print-helper";
 import { NativePrintDialog } from "@/components/native-print-dialog";
+import { PhotoPrintWorkspace } from "@/components/photo-print-workspace";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -56,6 +57,22 @@ const presetDefaults: Record<PresetId, Counts> = {
 };
 
 export function TemplateFoundation() {
+  const [mode, setMode] = useState<"id" | "prints">("id");
+
+  return <div className="flex min-h-[calc(100vh-56px)] flex-col xl:h-[calc(100dvh-56px)] xl:min-h-0 xl:overflow-hidden">
+    <div className="flex min-h-[52px] shrink-0 items-center border-b border-[var(--border-soft)] bg-white px-4">
+      <div className="grid w-full max-w-[360px] grid-cols-2 rounded-[9px] bg-[var(--ground)] p-[3px]" aria-label="Template Builder mode">
+        <button type="button" onClick={() => setMode("id")} aria-pressed={mode === "id"} className={`h-9 rounded-[7px] font-semibold ${mode === "id" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)] hover:text-[var(--ink)]"}`}>ID Photos <span className="ml-1 rounded-full border border-[#eedf8a] bg-[var(--brand-tint)] px-1.5 py-0.5 text-[9px] tracking-[0.04em]">USUAL</span></button>
+        <button type="button" onClick={() => setMode("prints")} aria-pressed={mode === "prints"} className={`h-9 rounded-[7px] font-semibold ${mode === "prints" ? "bg-white shadow-[0_1px_2px_rgba(23,23,23,.09)]" : "text-[var(--ink-2)] hover:text-[var(--ink)]"}`}>Photo Prints</button>
+      </div>
+      <p className="ml-4 hidden text-[12px] text-[var(--ink-3)] md:block">{mode === "id" ? "ID packages and passport photos" : "Different photos and sizes on one A4 sheet"}</p>
+    </div>
+    <div className={mode === "id" ? "min-h-0 flex-1" : "hidden"}><IdPhotoBuilder active={mode === "id"} /></div>
+    <div className={mode === "prints" ? "min-h-0 flex-1" : "hidden"}><PhotoPrintWorkspace active={mode === "prints"} /></div>
+  </div>;
+}
+
+function IdPhotoBuilder({ active }: { active: boolean }) {
   const workingPhoto = useWorkingPhoto();
   const { confirm, toast } = useFeedback();
   const [photo, setPhoto] = useState<LoadedPhoto | null>(null);
@@ -185,14 +202,14 @@ export function TemplateFoundation() {
 
   useEffect(() => {
     const handlePrintShortcut = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p" && canOutput) {
+      if (active && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "p" && canOutput) {
         event.preventDefault();
         Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Print")?.click();
       }
     };
     window.addEventListener("keydown", handlePrintShortcut);
     return () => window.removeEventListener("keydown", handlePrintShortcut);
-  }, [canOutput]);
+  }, [active, canOutput]);
 
   useEffect(() => {
     if (!photo) return;
@@ -406,9 +423,9 @@ export function TemplateFoundation() {
   const customerBMainCropTarget = preset === "1x1-only" ? "second-small" : "second-big";
 
   return (
-    <div className="flex min-h-[calc(100vh-56px)] flex-col">
-      <div className="grid min-h-0 flex-1 xl:grid-cols-[336px_minmax(0,1fr)]">
-        <aside className="border-b border-[var(--border-soft)] bg-white p-4 xl:max-h-[calc(100vh-128px)] xl:overflow-y-auto xl:border-r xl:border-b-0">
+    <div className="flex min-h-[calc(100vh-108px)] flex-col xl:h-full xl:min-h-0 xl:overflow-hidden">
+      <div className="grid min-h-0 flex-1 xl:overflow-hidden xl:grid-cols-[336px_minmax(0,1fr)]">
+        <aside className="border-b border-[var(--border-soft)] bg-white p-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:border-b-0">
           <SectionLabel number="1" label="Photo" />
           {secondEnabled && <div className="mt-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.04em] text-[#6b5b20]"><span className="grid size-5 place-items-center rounded-full bg-[var(--brand)] text-[9px] text-[var(--ink)]">A</span> Customer A</div>}
           <input ref={inputRef} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void acceptFile(file); event.target.value = ""; }} />
