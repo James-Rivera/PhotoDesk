@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { A4_PAGE, CJNET_NORMAL_EDGE_MARGIN_POINTS, ONE_BY_ONE_POINTS, PASSPORT_EDGE_MARGIN_POINTS } from "./constants";
-import { arrangeMixedShelves, maximumSmallCopies, smallCopiesBesideBigRows } from "./mixed-shelf";
+import { arrangeCustomerMixedShelves, arrangeMixedShelves, maximumSmallCopies, smallCopiesBesideBigRows } from "./mixed-shelf";
 import { millimetersToPoints } from "./units";
 
 const request = {
@@ -45,5 +45,37 @@ describe("mixed Passport and 1x1 shelf packing", () => {
     expect(layout.placed[0].x).toBe(CJNET_NORMAL_EDGE_MARGIN_POINTS);
     expect(smallItems.every((item) => item.row === fifthBig.row)).toBe(true);
     expect(smallItems.every((item) => item.x >= fifthBig.x + fifthBig.width)).toBe(true);
+  });
+
+  it("keeps two customers mapped to their own large and small photo sources", () => {
+    const layout = arrangeCustomerMixedShelves({
+      ...request,
+      customers: [
+        { sourcePrefix: "customer-a", bigQuantity: 5, smallQuantity: 6 },
+        { sourcePrefix: "customer-b", bigQuantity: 5, smallQuantity: 6 },
+      ],
+    });
+
+    expect(layout.fits).toBe(true);
+    expect(layout.placed.filter((item) => item.sourceKey === "customer-a-big")).toHaveLength(5);
+    expect(layout.placed.filter((item) => item.sourceKey === "customer-b-big")).toHaveLength(5);
+    expect(layout.placed.filter((item) => item.sourceKey === "customer-a-small")).toHaveLength(6);
+    expect(layout.placed.filter((item) => item.sourceKey === "customer-b-small")).toHaveLength(6);
+    expect(layout.placed.filter((item) => item.sourceKey.endsWith("-big")).every((item) => item.width === millimetersToPoints(35) && item.height === millimetersToPoints(45))).toBe(true);
+    expect(layout.placed.filter((item) => item.sourceKey.endsWith("-small")).every((item) => item.width === ONE_BY_ONE_POINTS && item.height === ONE_BY_ONE_POINTS)).toBe(true);
+  });
+
+  it("reports overflow against the customer whose copies do not fit", () => {
+    const layout = arrangeCustomerMixedShelves({
+      ...request,
+      customers: [
+        { sourcePrefix: "customer-a", bigQuantity: 5, smallQuantity: 0 },
+        { sourcePrefix: "customer-b", bigQuantity: 40, smallQuantity: 0 },
+      ],
+    });
+
+    expect(layout.fits).toBe(false);
+    expect(layout.overflow.length).toBeGreaterThan(0);
+    expect(layout.overflow.every((item) => item.sourceKey === "customer-b-big")).toBe(true);
   });
 });

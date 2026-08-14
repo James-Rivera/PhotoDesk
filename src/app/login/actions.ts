@@ -5,8 +5,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getSafeNextPath } from "@/lib/auth/redirects";
+import { clearAuthLimit, consumeAuthLimit, getClientAddress, retryMessage } from "@/lib/auth/rate-limit";
+import { sendPasswordHelpEmail } from "@/lib/auth/admin-email";
 
 export interface LoginState {
+  message: string | null;
+}
+
+export interface PasswordHelpState {
+  status: "idle" | "success" | "error";
   message: string | null;
 }
 
@@ -18,9 +25,20 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
   if (!email || !password) return { message: "Enter both your email address and password." };
   if (email.length > 254 || password.length > 1_024) return { message: "The email address or password is too long." };
 
+  const clientAddress = await getClientAddress();
+  const [accountLimit, addressLimit] = await Promise.all([
+    consumeAuthLimit("login-account", email, 5, 15 * 60),
+    consumeAuthLimit("login-address", clientAddress, 30, 15 * 60),
+  ]);
+  if (!accountLimit.allowed || !addressLimit.allowed) {
+    return { message: retryMessage(Math.max(accountLimit.retryAfterSeconds, addressLimit.retryAfterSeconds)) };
+  }
+
   const supabase = await createClient();
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
   if (authError || !authData.user) return { message: "The email address or password is incorrect." };
+
+  await clearAuthLimit("login-account", email);
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -39,4 +57,31 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
 
   revalidatePath("/", "layout");
   redirect(nextPath);
+}
+
+export async function requestPasswordHelp(_: PasswordHelpState, formData: FormData): Promise<PasswordHelpState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email || email.length > 254 || !email.includes("@")) {
+    return { status: "error", message: "Enter the email address used for your staff account." };
+  }
+  if (!isSupabaseConfigured()) {
+    return { status: "error", message: "Password help is not configured on this deployment yet." };
+  }
+
+  const clientAddress = await getClientAddress();
+  const [accountLimit, addressLimit] = await Promise.all([
+    consumeAuthLimit("password-help-account", email, 3, 60 * 60),
+    consumeAuthLimit("password-help-address", clientAddress, 10, 60 * 60),
+  ]);
+  if (!accountLimit.allowed || !addressLimit.allowed) {
+    return { status: "error", message: retryMessage(Math.max(accountLimit.retryAfterSeconds, addressLimit.retryAfterSeconds)) };
+  }
+
+  const sent = await sendPasswordHelpEmail(email);
+  if (!sent) return { status: "error", message: "The request could not be sent. Please contact the administrator directly." };
+
+  return {
+    status: "success",
+    message: "Request sent. The administrator will contact you after checking your staff account.",
+  };
 }
