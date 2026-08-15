@@ -128,10 +128,21 @@ function IdPhotoBuilder({ active }: { active: boolean }) {
     void loadPhoto(transfer.file).then((loaded) => {
       if (!active) { URL.revokeObjectURL(loaded.url); return; }
       setPhoto(loaded);
+      if (transfer.source === "photo-preparation") {
+        if (transfer.backgroundColor === null) setBackgroundChoice("transparent");
+        else if (transfer.backgroundColor?.toLowerCase() === "#ffffff") setBackgroundChoice("white");
+        else if (transfer.backgroundColor?.toLowerCase() === "#dbeafe") setBackgroundChoice("blue");
+        else if (transfer.backgroundColor) {
+          setCustomBackground(transfer.backgroundColor);
+          setBackgroundChoice("custom");
+        }
+      }
       setJobName("");
       setCrops({ big: DEFAULT_CROP, small: DEFAULT_CROP });
       setError(null);
-      setNotice(`${transfer.file.name} was loaded from the Customer Library.`);
+      setNotice(transfer.source === "photo-preparation"
+        ? `${transfer.file.name} is ready. Its background color remains editable below.`
+        : `${transfer.file.name} was loaded from the Customer Library.`);
       workingPhoto.clear();
     }).catch(() => { if (active) setError("The Library photo could not be loaded."); });
     return () => { active = false; };

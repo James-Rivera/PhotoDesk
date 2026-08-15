@@ -1,4 +1,4 @@
-export type BackgroundRemovalStage = "runtime" | "model" | "processing" | "finishing";
+export type BackgroundRemovalStage = "connecting" | "uploading" | "runtime" | "model" | "processing" | "finishing";
 
 export interface BackgroundRemovalProgress {
   stage: BackgroundRemovalStage;
@@ -9,5 +9,11 @@ export interface BackgroundRemovalProgress {
 export interface BackgroundRemovalProvider {
   readonly id: string;
   readonly name: string;
-  remove(file: File, onProgress: (progress: BackgroundRemovalProgress) => void): Promise<Blob>;
+  remove(file: File, onProgress: (progress: BackgroundRemovalProgress) => void, options?: { signal?: AbortSignal }): Promise<Blob>;
+}
+
+export interface BackgroundRemovalHealth {
+  status: "ready" | "starting" | "offline" | "unconfigured";
+  model?: string;
+  serviceVersion?: string;
 }

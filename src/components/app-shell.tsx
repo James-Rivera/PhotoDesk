@@ -18,7 +18,7 @@ const navItems = [
 
 const pageContext = {
   "/app/template": ["Template Builder", "Build an exact-size A4 photo sheet"],
-  "/app/remove-background": ["Remove Background", "Process customer photos on this computer"],
+  "/app/remove-background": ["Remove Background", "Prepare backgrounds and color before printing"],
   "/app/library": ["Customer Library", "Saved photos in the private shop library"],
   "/app/admin": ["Maintenance", "Admin-only health checks and backup tools"],
 } as const;
