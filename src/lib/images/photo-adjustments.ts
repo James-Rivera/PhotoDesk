@@ -1,3 +1,5 @@
+import { DEFAULT_PHOTO_CROP, photoCropToPixels, type PhotoCrop } from "./photo-crop";
+
 export interface PhotoAdjustments {
   exposure: number;
   contrast: number;
@@ -120,21 +122,22 @@ export function applyPhotoAdjustmentsPixels(pixels: Uint8ClampedArray, width: nu
   if (adjustments.sharpness > 0 && width > 2 && height > 2) sharpenPixels(pixels, width, height, adjustments.sharpness / 100);
 }
 
-export async function renderAdjustedPhoto(file: File, adjustments: PhotoAdjustments, options: { maxDimension?: number; backgroundColor?: string | null } = {}) {
+export async function renderAdjustedPhoto(file: File, adjustments: PhotoAdjustments, options: { maxDimension?: number; backgroundColor?: string | null; crop?: PhotoCrop } = {}) {
   const bitmap = await createImageBitmap(file);
   try {
-    const scale = options.maxDimension && Math.max(bitmap.width, bitmap.height) > options.maxDimension
-      ? options.maxDimension / Math.max(bitmap.width, bitmap.height)
+    const sourceCrop = photoCropToPixels(options.crop ?? DEFAULT_PHOTO_CROP, bitmap.width, bitmap.height);
+    const scale = options.maxDimension && Math.max(sourceCrop.width, sourceCrop.height) > options.maxDimension
+      ? options.maxDimension / Math.max(sourceCrop.width, sourceCrop.height)
       : 1;
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const width = Math.max(1, Math.round(sourceCrop.width * scale));
+    const height = Math.max(1, Math.round(sourceCrop.height * scale));
     const canvas = document.createElement("canvas");
     canvas.width = width; canvas.height = height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) throw new Error("Canvas is unavailable.");
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
-    context.drawImage(bitmap, 0, 0, width, height);
+    context.drawImage(bitmap, sourceCrop.x, sourceCrop.y, sourceCrop.width, sourceCrop.height, 0, 0, width, height);
     const imageData = context.getImageData(0, 0, width, height);
     applyPhotoAdjustmentsPixels(imageData.data, width, height, adjustments);
     context.putImageData(imageData, 0, 0);

@@ -2,15 +2,17 @@
 /* eslint-disable @next/next/no-img-element -- local object URLs and short-lived signed URLs intentionally bypass image optimization */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Brush, Check, Download, ImageMinus, Library, LoaderCircle, Maximize2, Minus, Plus, RefreshCw, RotateCcw, Send, SlidersHorizontal, Upload, X } from "lucide-react";
+import { Brush, Check, Crop, Download, ImageMinus, Library, LoaderCircle, Maximize2, Minus, Plus, RefreshCw, RotateCcw, Send, SlidersHorizontal, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { checkHomelabBackgroundRemovalHealth, homelabBackgroundRemovalProvider } from "@/lib/background-removal/homelab";
 import type { BackgroundRemovalHealth, BackgroundRemovalProgress } from "@/lib/background-removal/types";
 import { applyPhotoAdjustmentsPixels, DEFAULT_PHOTO_ADJUSTMENTS, hasPhotoAdjustments, renderAdjustedPhoto, type PhotoAdjustments } from "@/lib/images/photo-adjustments";
+import { DEFAULT_PHOTO_CROP, isPhotoCropped, photoCropToPixels, type PhotoCrop } from "@/lib/images/photo-crop";
 import { ALLOWED_PHOTO_TYPES, MAX_PHOTO_BYTES } from "@/lib/library/constants";
 import { LibraryPhotoPickerDialog } from "./library-photo-picker-dialog";
 import { MaskEdgeEditor } from "./mask-edge-editor";
 import { PhotoAdjustmentsDialog } from "./photo-adjustments-dialog";
+import { PhotoCropDialog } from "./photo-crop-dialog";
 import { useWorkingPhoto } from "./working-photo-context";
 import { SavePhotoToLibraryDialog } from "./save-photo-to-library-dialog";
 import { useFeedback } from "./feedback-provider";
@@ -38,6 +40,8 @@ export function RemoveBackgroundWorkspace() {
   const [libraryPicker, setLibraryPicker] = useState(false);
   const [maskEditing, setMaskEditing] = useState(false);
   const [adjustmentsDialog, setAdjustmentsDialog] = useState(false);
+  const [cropDialog, setCropDialog] = useState(false);
+  const [crop, setCrop] = useState<PhotoCrop>(DEFAULT_PHOTO_CROP);
   const [previewZoom, setPreviewZoom] = useState(100);
   const baseFile = result ?? source?.file ?? null;
   const replacementColor = result
@@ -74,19 +78,19 @@ export function RemoveBackgroundWorkspace() {
       const levelsShortcut = key === "l" && event.ctrlKey && !event.metaKey;
       const fallbackShortcut = key === "a" && !event.ctrlKey && !event.altKey && !event.metaKey;
       if (isTyping || (!levelsShortcut && !fallbackShortcut)) return;
-      if (!source || processing || libraryPicker || saveDialog || maskEditing || adjustmentsDialog) return;
+      if (!source || processing || libraryPicker || saveDialog || maskEditing || adjustmentsDialog || cropDialog) return;
       event.preventDefault();
       setAdjustmentsDialog(true);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [adjustmentsDialog, libraryPicker, maskEditing, processing, saveDialog, source]);
+  }, [adjustmentsDialog, cropDialog, libraryPicker, maskEditing, processing, saveDialog, source]);
 
   function selectFile(file: File, customerName?: string) {
     if (!ALLOWED_PHOTO_TYPES.has(file.type)) { toast("Choose a JPG, PNG, or WebP image.", { tone: "error" }); return; }
     if (file.size > MAX_PHOTO_BYTES) { toast("The image must be 20 MB or smaller.", { tone: "error" }); return; }
     setSource({ file, url: URL.createObjectURL(file), customerName });
-    setResult(null); setProgress(null); setBackground("transparent"); setAdjustments(DEFAULT_PHOTO_ADJUSTMENTS); setShowOriginal(false); setMaskEditing(false); setAdjustmentsDialog(false); setPreviewZoom(100);
+    setResult(null); setProgress(null); setBackground("transparent"); setAdjustments(DEFAULT_PHOTO_ADJUSTMENTS); setCrop(DEFAULT_PHOTO_CROP); setShowOriginal(false); setMaskEditing(false); setAdjustmentsDialog(false); setCropDialog(false); setPreviewZoom(100);
   }
 
   async function removeBackground() {
@@ -111,7 +115,7 @@ export function RemoveBackgroundWorkspace() {
 
   async function outputFile() {
     if (!baseFile || !source) throw new Error("Choose a photo first.");
-    const blob = await renderAdjustedPhoto(baseFile, adjustments, { backgroundColor: replacementColor });
+    const blob = await renderAdjustedPhoto(baseFile, adjustments, { backgroundColor: replacementColor, crop });
     const name = `${source.file.name.replace(/\.[^.]+$/, "")}-prepared.png`;
     return new File([blob], name, { type: "image/png" });
   }
@@ -121,7 +125,7 @@ export function RemoveBackgroundWorkspace() {
       // Keep the cutout transparent so Template Builder can change the color
       // non-destructively. Carry the current choice only as its initial setting.
       if (!baseFile || !source) throw new Error("Choose a photo first.");
-      const blob = await renderAdjustedPhoto(baseFile, adjustments);
+      const blob = await renderAdjustedPhoto(baseFile, adjustments, { crop });
       const file = new File([blob], `${source.file.name.replace(/\.[^.]+$/, "")}-prepared.png`, { type: "image/png" });
       sendToTemplate(file, { backgroundColor: replacementColor, source: "photo-preparation" });
       router.push("/app/template");
@@ -142,21 +146,17 @@ export function RemoveBackgroundWorkspace() {
   function clearWorkspace() {
     requestRef.current?.abort();
     setSource(null); setResult(null); setBackground("transparent"); setCustomBackground("#dbeafe"); setPreviewZoom(100);
-    setAdjustments(DEFAULT_PHOTO_ADJUSTMENTS); setProgress(null); setSaveDialog(false); setShowOriginal(false); setMaskEditing(false); setAdjustmentsDialog(false);
+    setAdjustments(DEFAULT_PHOTO_ADJUSTMENTS); setCrop(DEFAULT_PHOTO_CROP); setProgress(null); setSaveDialog(false); setShowOriginal(false); setMaskEditing(false); setAdjustmentsDialog(false); setCropDialog(false);
   }
 
   async function requestReset() {
-    const approved = await confirm({ title: "Reset photo preparation?", body: "The selected photo, background result, and adjustments will be cleared from this workspace.", cancelLabel: "Keep working", confirmLabel: "Reset", destructive: true });
+    const approved = await confirm({ title: "Reset photo preparation?", body: "The selected photo, background result, crop, and adjustments will be cleared from this workspace.", cancelLabel: "Keep working", confirmLabel: "Reset", destructive: true });
     if (approved) clearWorkspace();
   }
 
   return <div className="flex min-h-[calc(100vh-56px)] flex-col lg:h-[calc(100dvh-56px)] lg:min-h-0 lg:overflow-hidden">
     <div className="grid min-h-0 flex-1 lg:grid-cols-[360px_minmax(0,1fr)]">
       <aside className="overflow-y-auto border-b border-[var(--border-soft)] bg-white p-5 lg:border-r lg:border-b-0">
-        <p className="text-[11px] font-bold uppercase tracking-[.06em] text-[var(--ink-3)]">Photo preparation</p>
-        <h1 className="mt-2 text-[22px] font-bold">Background &amp; color</h1>
-        <p className="mt-2 text-[12.5px] leading-5 text-[var(--ink-2)]">Remove the original background, correct the photo, then send the full-resolution result to Template Builder for cropping.</p>
-
         <ServiceStatus health={health} onRetry={() => void refreshHealth()} />
 
         <input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) selectFile(file); event.target.value = ""; }} />
@@ -181,6 +181,8 @@ export function RemoveBackgroundWorkspace() {
           <p className="mt-1 text-[11px] leading-4 text-[var(--ink-3)]">Open the live histogram and manual Levels/color controls.</p>
           <button type="button" disabled={processing} onClick={() => setAdjustmentsDialog(true)} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white font-bold hover:bg-[var(--surface-warm)] disabled:opacity-45"><SlidersHorizontal size={16} /> Adjust photo <span className="ml-auto mr-1 flex gap-1"><kbd className="rounded border border-[var(--border)] bg-[var(--surface-warm)] px-1.5 py-0.5 text-[9px] font-bold">Ctrl L</kbd><kbd className="rounded border border-[var(--border)] bg-[var(--surface-warm)] px-1.5 py-0.5 text-[9px] font-bold">A</kbd></span></button>
           {hasPhotoAdjustments(adjustments) && <p className="mt-2 text-[10.5px] font-semibold text-[#255c2f]">Manual adjustments applied</p>}
+          <button type="button" disabled={processing} onClick={() => setCropDialog(true)} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white font-bold hover:bg-[var(--surface-warm)] disabled:opacity-45"><Crop size={16} /> Crop photo</button>
+          {isPhotoCropped(crop) && <div className="mt-2 flex items-center justify-between text-[10.5px] font-semibold text-[#255c2f]"><span>Crop applied</span><button type="button" onClick={() => setCrop(DEFAULT_PHOTO_CROP)} className="text-[var(--ink-2)] underline underline-offset-2">Use full photo</button></div>}
         </div>}
 
         {result && <div className="mt-5 border-t border-[var(--border-soft)] pt-4">
@@ -204,8 +206,8 @@ export function RemoveBackgroundWorkspace() {
         {source && !maskEditing && <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center rounded-lg border border-[var(--border-soft)] bg-white p-1 shadow-sm"><button type="button" onClick={() => setShowOriginal(true)} className={`h-8 rounded-md px-3 font-semibold ${showOriginal ? "bg-[var(--ink)] text-white" : ""}`}>Original</button><button type="button" onClick={() => setShowOriginal(false)} className={`h-8 rounded-md px-3 font-semibold ${!showOriginal ? "bg-[var(--ink)] text-white" : ""}`}>Prepared</button>{result && <button type="button" onClick={() => setMaskEditing(true)} className="ml-1 flex h-8 items-center gap-1.5 rounded-md border border-[var(--border)] px-3 font-semibold"><Brush size={13} /> Edit edges</button>}<span className="mx-1.5 h-5 w-px bg-[var(--divider)]" /><button type="button" onClick={() => setPreviewZoom((current) => Math.max(50, current - 25))} className="grid size-8 place-items-center rounded-md hover:bg-[var(--surface-warm)]" aria-label="Zoom photo out"><Minus size={13} /></button><span className="measurement min-w-10 text-center text-[10px]">{previewZoom === 100 ? "Fit" : `${previewZoom}%`}</span><button type="button" onClick={() => setPreviewZoom((current) => Math.min(300, current + 25))} className="grid size-8 place-items-center rounded-md hover:bg-[var(--surface-warm)]" aria-label="Zoom photo in"><Plus size={13} /></button><button type="button" onClick={() => setPreviewZoom(100)} className="grid size-8 place-items-center rounded-md hover:bg-[var(--surface-warm)]" aria-label="Fit entire photo"><Maximize2 size={13} /></button></div>}
         {maskEditing && source && result ? <MaskEdgeEditor source={source.file} cutout={result} onCancel={() => setMaskEditing(false)} onApply={(file) => { setResult(file); setMaskEditing(false); toast("Edge corrections applied.", { tone: "success" }); }} />
           : source && baseFile ? <div className="flex h-full min-h-0 w-full max-w-[920px] flex-col pt-11">{showOriginal
-            ? <ZoomableImagePreview src={source.url} alt="Original photo" zoom={previewZoom} checkerboard={false} backgroundColor={null} />
-            : <LiveAdjustedCanvasPreview file={baseFile} adjustments={adjustments} zoom={previewZoom} checkerboard={!replacementColor && Boolean(result)} backgroundColor={replacementColor} />}
+            ? <ZoomableImagePreview src={source.url} alt="Original photo" zoom={previewZoom} checkerboard={false} backgroundColor={null} crop={crop} />
+            : <LiveAdjustedCanvasPreview file={baseFile} adjustments={adjustments} zoom={previewZoom} checkerboard={!replacementColor && Boolean(result)} backgroundColor={replacementColor} crop={crop} />}
             <p className="shrink-0 py-2 text-center text-[11.5px] text-[var(--ink-3)]">{result ? "Inspect hair, ears, shoulders, and background edges before using the processed photo." : "Adjustments are non-destructive. Remove the background when a replacement color is required."}</p></div>
             : <div className="text-center text-[var(--ink-3)]"><SlidersHorizontal className="mx-auto" size={34} /><p className="mt-3 font-bold text-[var(--ink-2)]">The prepared photo will appear here</p><p className="mt-1 text-[12px]">Upload a photo or choose one from the private Library.</p></div>}
       </main>
@@ -220,11 +222,12 @@ export function RemoveBackgroundWorkspace() {
     {libraryPicker && <LibraryPhotoPickerDialog onClose={() => setLibraryPicker(false)} onChoose={(file, customerName) => selectFile(file, customerName)} />}
     {saveDialog && baseFile && <ProcessedSaveDialog fileFactory={outputFile} onClose={() => setSaveDialog(false)} onSaved={(name) => { setSaveDialog(false); toast(`Prepared photo saved privately for ${name}.`, { tone: "success" }); }} />}
     {adjustmentsDialog && baseFile && <PhotoAdjustmentsDialog file={baseFile} value={adjustments} onPreview={setAdjustments} onClose={closeAdjustments} onApply={applyAdjustments} />}
+    {cropDialog && baseFile && <PhotoCropDialog file={baseFile} value={crop} onClose={() => setCropDialog(false)} onApply={(value) => { setCrop(value); setCropDialog(false); setPreviewZoom(100); toast("Photo crop applied.", { tone: "success" }); }} />}
     {processing && <BackgroundRemovalProgressDialog progress={progress} onCancel={() => requestRef.current?.abort()} />}
   </div>;
 }
 
-function ZoomableImagePreview({ src, alt, zoom, checkerboard, backgroundColor }: { src: string; alt: string; zoom: number; checkerboard: boolean; backgroundColor: string | null }) {
+function ZoomableImagePreview({ src, alt, zoom, checkerboard, backgroundColor, crop }: { src: string; alt: string; zoom: number; checkerboard: boolean; backgroundColor: string | null; crop: PhotoCrop }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
   const [viewportSize, setViewportSize] = useState({ width: 1, height: 1 });
@@ -239,21 +242,24 @@ function ZoomableImagePreview({ src, alt, zoom, checkerboard, backgroundColor }:
     return () => observer.disconnect();
   }, []);
 
+  const sourceCrop = photoCropToPixels(crop, imageSize.width, imageSize.height);
   const fitScale = Math.min(
-    Math.max(1, viewportSize.width - 24) / imageSize.width,
-    Math.max(1, viewportSize.height - 24) / imageSize.height,
+    Math.max(1, viewportSize.width - 24) / sourceCrop.width,
+    Math.max(1, viewportSize.height - 24) / sourceCrop.height,
   );
-  const displayWidth = Math.max(1, Math.round(imageSize.width * fitScale * zoom / 100));
-  const displayHeight = Math.max(1, Math.round(imageSize.height * fitScale * zoom / 100));
+  const displayWidth = Math.max(1, Math.round(sourceCrop.width * fitScale * zoom / 100));
+  const displayHeight = Math.max(1, Math.round(sourceCrop.height * fitScale * zoom / 100));
 
   return <div ref={viewportRef} className={`relative min-h-0 flex-1 overflow-auto rounded-xl border border-[var(--border-soft)] ${checkerboard ? "checkerboard" : ""}`} style={backgroundColor ? { backgroundColor } : undefined}>
     <div className="flex min-h-full min-w-full items-center justify-center p-3" style={{ width: Math.max(viewportSize.width, displayWidth + 24), height: Math.max(viewportSize.height, displayHeight + 24) }}>
-      <img src={src} alt={alt} draggable={false} onLoad={(event) => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="shrink-0 select-none object-contain" style={{ width: displayWidth, height: displayHeight }} />
+      <div className="relative shrink-0 overflow-hidden" style={{ width: displayWidth, height: displayHeight }}>
+        <img src={src} alt={alt} draggable={false} onLoad={(event) => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} className="absolute max-w-none select-none" style={{ width: imageSize.width * fitScale * zoom / 100, height: imageSize.height * fitScale * zoom / 100, left: -sourceCrop.x * fitScale * zoom / 100, top: -sourceCrop.y * fitScale * zoom / 100 }} />
+      </div>
     </div>
   </div>;
 }
 
-function LiveAdjustedCanvasPreview({ file, adjustments, zoom, checkerboard, backgroundColor }: { file: File; adjustments: PhotoAdjustments; zoom: number; checkerboard: boolean; backgroundColor: string | null }) {
+function LiveAdjustedCanvasPreview({ file, adjustments, zoom, checkerboard, backgroundColor, crop }: { file: File; adjustments: PhotoAdjustments; zoom: number; checkerboard: boolean; backgroundColor: string | null; crop: PhotoCrop }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
@@ -279,9 +285,10 @@ function LiveAdjustedCanvasPreview({ file, adjustments, zoom, checkerboard, back
       bitmap = nextBitmap;
       if (!active) { nextBitmap.close(); bitmap = null; return; }
       bitmapRef.current = nextBitmap;
-      const scale = Math.min(1, 900 / Math.max(nextBitmap.width, nextBitmap.height));
-      const width = Math.max(1, Math.round(nextBitmap.width * scale));
-      const height = Math.max(1, Math.round(nextBitmap.height * scale));
+      const sourceCrop = photoCropToPixels(crop, nextBitmap.width, nextBitmap.height);
+      const scale = Math.min(1, 900 / Math.max(sourceCrop.width, sourceCrop.height));
+      const width = Math.max(1, Math.round(sourceCrop.width * scale));
+      const height = Math.max(1, Math.round(sourceCrop.height * scale));
       const canvas = canvasRef.current;
       if (canvas) { canvas.width = width; canvas.height = height; }
       setImageSize({ width, height });
@@ -293,7 +300,7 @@ function LiveAdjustedCanvasPreview({ file, adjustments, zoom, checkerboard, back
       if (bitmapRef.current === bitmap) bitmapRef.current = null;
       bitmap?.close();
     };
-  }, [file]);
+  }, [crop, file]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -305,13 +312,14 @@ function LiveAdjustedCanvasPreview({ file, adjustments, zoom, checkerboard, back
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "high";
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const sourceCrop = photoCropToPixels(crop, bitmap.width, bitmap.height);
+      context.drawImage(bitmap, sourceCrop.x, sourceCrop.y, sourceCrop.width, sourceCrop.height, 0, 0, canvas.width, canvas.height);
       const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
       applyPhotoAdjustmentsPixels(imageData.data, canvas.width, canvas.height, adjustments);
       context.putImageData(imageData, 0, 0);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [adjustments, sourceVersion]);
+  }, [adjustments, crop, sourceVersion]);
 
   const fitScale = Math.min(
     Math.max(1, viewportSize.width - 24) / imageSize.width,
@@ -344,7 +352,7 @@ function ServiceStatus({ health, onRetry }: { health: BackgroundRemovalHealth; o
   const ready = health.status === "ready";
   const starting = health.status === "starting";
   const label = ready ? "Background remover ready" : starting ? "Connecting to background remover…" : health.status === "unconfigured" ? "Background remover not configured" : "Background remover unavailable";
-  return <div className={`mt-4 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-[11.5px] ${ready ? "border-[#cbe3c6] bg-[#eef6ec] text-[#255c2f]" : starting ? "border-[#f0e3bc] bg-[#fffaed]" : "border-[#efc0b2] bg-[#fdf0ec] text-[#8c2410]"}`}><span className={`size-2 rounded-full ${ready ? "bg-[#2f6e3b]" : starting ? "animate-pulse bg-[#a16a00]" : "bg-[#b5220c]"}`} /><span className="min-w-0 flex-1"><strong className="block">{label}</strong>{health.model && <span className="measurement block truncate text-[9.5px] opacity-75">{health.model}</span>}</span>{!ready && !starting && <button type="button" onClick={onRetry} className="grid size-7 place-items-center rounded-md hover:bg-white/60" aria-label="Retry background-removal connection"><RefreshCw size={14} /></button>}</div>;
+  return <div className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-[11.5px] ${ready ? "border-[#cbe3c6] bg-[#eef6ec] text-[#255c2f]" : starting ? "border-[#f0e3bc] bg-[#fffaed]" : "border-[#efc0b2] bg-[#fdf0ec] text-[#8c2410]"}`}><span className={`size-2 rounded-full ${ready ? "bg-[#2f6e3b]" : starting ? "animate-pulse bg-[#a16a00]" : "bg-[#b5220c]"}`} /><span className="min-w-0 flex-1"><strong className="block">{label}</strong>{health.model && <span className="measurement block truncate text-[9.5px] opacity-75">{health.model}</span>}</span>{!ready && !starting && <button type="button" onClick={onRetry} className="grid size-7 place-items-center rounded-md hover:bg-white/60" aria-label="Retry background-removal connection"><RefreshCw size={14} /></button>}</div>;
 }
 
 function BackgroundChoiceButton({ label, color, selected, checkerboard = false, onClick }: { label: string; color?: string; selected: boolean; checkerboard?: boolean; onClick: () => void }) {
