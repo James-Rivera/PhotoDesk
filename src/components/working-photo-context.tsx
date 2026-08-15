@@ -5,11 +5,13 @@ import { createContext, useContext, useMemo, useState } from "react";
 interface WorkingPhoto {
   id: string;
   file: File;
+  backgroundColor?: string | null;
+  source?: "library" | "photo-preparation";
 }
 
 interface WorkingPhotoContextValue {
   photo: WorkingPhoto | null;
-  sendToTemplate: (file: File) => void;
+  sendToTemplate: (file: File, options?: Pick<WorkingPhoto, "backgroundColor" | "source">) => void;
   clear: () => void;
 }
 
@@ -19,7 +21,7 @@ export function WorkingPhotoProvider({ children }: { children: React.ReactNode }
   const [photo, setPhoto] = useState<WorkingPhoto | null>(null);
   const value = useMemo(() => ({
     photo,
-    sendToTemplate: (file: File) => setPhoto({ id: crypto.randomUUID(), file }),
+    sendToTemplate: (file: File, options?: Pick<WorkingPhoto, "backgroundColor" | "source">) => setPhoto({ id: crypto.randomUUID(), file, ...options }),
     clear: () => setPhoto(null),
   }), [photo]);
   return <WorkingPhotoContext.Provider value={value}>{children}</WorkingPhotoContext.Provider>;

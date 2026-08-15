@@ -17,11 +17,11 @@ The project is being implemented in milestones.
 | Exact A4 PDF generation | Working |
 | Authentication and protected routes | Working; Supabase project setup required |
 | Customer Library and private Storage | Working; migration setup required |
-| Local background removal | Working; first model download requires internet |
+| Homelab background removal and photo preparation | Working; private service deployment required |
 | Admin maintenance | Working; admin-only health check and metadata export |
 | Calibration page and optional PWA | Planned |
 
-The `/login` screen is connected to Supabase email/password authentication. Customer Library supports private photos and direct Template Builder handoff. Remove Background now runs MediaPipe locally in the browser and can send its processed PNG to the Template Builder or private Customer Library.
+The `/login` screen is connected to Supabase email/password authentication. Customer Library supports private photos and direct Template Builder handoff. Photo Preparation sends an authenticated portrait directly from the browser to CJNET's private rembg service, then keeps manual color correction, background composition, download, and feature handoff in the browser.
 
 ## Template Builder
 
@@ -148,11 +148,13 @@ Thumbnails use one-hour signed URLs. Database and Storage RLS grant access only 
 
 After a local photo is added to the Template Builder, PhotoDesk offers an optional **Save to Library** prompt. Staff can choose an existing customer or create a new customer in place. Only an explicit confirmation uploads the original source photo; the crop and A4 layout remain temporary and local.
 
-## Remove Background
+## Photo Preparation / Remove Background
 
-Open `/app/remove-background`, upload or drop a JPG, PNG, or WebP portrait, and choose **Remove background**. The Apache-2.0 MediaPipe Selfie Segmenter runs on the staff computer. The model is downloaded on first use and cached by the browser; customer image pixels are not sent to an image-processing API.
+Open `/app/remove-background`, upload or choose a Library JPG, PNG, or WebP portrait, and choose **Remove background**. The browser uploads through `https://rembg.cloudavera.tech` and the existing outbound-only Cloudflare Tunnel to CJNET's authenticated homelab rembg service; Vercel never receives the photo body. Cloudflare transports the request, while the origin remains bound to homelab loopback. The service validates the staff member's existing Supabase session and active profile, runs the fixed `isnet-general-use` model in memory, and returns a transparent PNG without retaining the upload.
 
-The result can be previewed over a checkerboard and kept transparent, composited over pure white, light blue, soft gray, or any custom color. The chosen output can be downloaded as a PNG, sent directly to the Template Builder, or explicitly saved to the private Customer Library as a `processed` photo. Check hair, ears, and shoulders before printing because automatic segmentation is not perfect.
+The workspace includes a compact Photoshop-inspired adjustment dialog with a live RGB/luminance histogram, input/output Levels, and deterministic manual Exposure, Contrast, Warmth, Tint, Saturation, and Sharpness controls. **Auto** applies conservative histogram-based input Levels with tightly bounded midpoint correction; it does not alter color, hide its values, or prevent further manual editing. On desktop, drag the dialog title bar to keep the portrait visible; the position is remembered for the browser session, remains constrained to the viewport, and can be restored by double-clicking the title bar or using its reset-position button. Small screens keep the dialog centered. `Ctrl+L` opens Levels when the browser permits overriding that reserved address-bar shortcut; `A` is the reliable fallback, and `Esc` cancels. The Preview checkbox redraws a persistent Canvas on the next animation frame as controls move, avoiding image reload flicker and layout scrollbar changes; Cancel restores the previous values and Apply commits the draft. The main workspace fits the entire image by default and provides 50–300% zoom with scrollable inspection. Background removal uses a focused progress dialog with live stage, percentage, and cancellation. After removal, **Edit edges** provides the same fit/zoom model, brush-based erase, restore, undo, and reset for hair, ears, and clothing, with its Done action fixed below the canvas. The result can stay transparent or use white, light blue, soft gray, or a custom color, then be downloaded, sent to Template Builder, or explicitly saved to the private Customer Library as `processed`. Template handoff keeps the prepared PNG transparent and carries the current color only as an editable starting choice, so staff can change the background in Template Builder without removing it again.
+
+Deploy and secure the service using [`services/rembg/README.md`](services/rembg/README.md), then set `NEXT_PUBLIC_BACKGROUND_REMOVAL_API_URL=https://rembg.cloudavera.tech`. If the homelab, its Internet connection, or the tunnel is offline, manual preparation and output remain available, but background removal is disabled with an explicit health status.
 
 ## Admin maintenance
 
@@ -166,7 +168,7 @@ Full database and Storage recovery procedures are documented in [Admin maintenan
 - TypeScript strict mode
 - Tailwind CSS 4
 - Browser Canvas for crop rasterization
-- Apache-2.0 MediaPipe Selfie Segmenter for local background removal
+- MIT-licensed rembg with Apache-2.0 IS-Net General Use on the private homelab service
 - [`pdf-lib`](https://pdf-lib.js.org/) for exact client-side PDF generation
 - Supabase Auth with cookie-based server rendering and RLS-protected staff profiles
 - Vitest for print-layout and redirect-safety tests
@@ -182,7 +184,7 @@ src/
   app/                         Next.js routes and layouts
   components/                  Application shell and Template Builder UI
   lib/images/crop.ts           Canvas crop and background rendering
-  lib/background-removal/      Replaceable local segmentation provider
+  lib/background-removal/      Replaceable authenticated segmentation provider
   lib/layout/                  Physical units, presets, and layout engines
   lib/pdf/photo-sheet.ts       Exact A4 PDF generation and cutting guides
   lib/supabase/                Browser/server clients and session refresh
@@ -191,6 +193,7 @@ public/assets/                 CJNET logo assets
 docs/FONT-LICENSES.md          Font usage and licensing notes
 docs/SUPABASE-AUTH-SETUP.md    Authentication setup and first-admin guide
 docs/ADMIN-MAINTENANCE.md      Backup and maintenance runbook
+docs/PRODUCTION-READINESS.md   Production release gates, smoke tests, and rollback
 docs/INCOMPLETE-WORK.md        Honest remaining-work checklist
 supabase/migrations/           Database schema and RLS migrations
 AGENTS.md                      Product, architecture, and implementation rules

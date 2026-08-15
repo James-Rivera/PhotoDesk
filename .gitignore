@@ -30,6 +30,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Python service caches
+__pycache__/
+*.py[cod]
+
 # Windows print helper build output
 print-helper/**/bin/
 print-helper/**/obj/
