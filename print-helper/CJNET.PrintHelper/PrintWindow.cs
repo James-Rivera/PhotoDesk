@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Printing;
 
@@ -10,9 +9,10 @@ internal sealed class PrintWindow : Form
     private readonly SheetPreviewControl preview;
     private readonly ComboBox printerList = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly NumericUpDown copies = new() { Minimum = 1, Maximum = 99, Value = 1 };
-    private readonly Button propertiesButton = new() { Text = "Printer settings…" };
+    private readonly Button propertiesButton = new() { Text = "PhotoDesk job settings…" };
     private readonly Button printButton = new() { Text = "Print" };
     private readonly Label statusLabel = new();
+    private PrintDocument? configuredDocument;
 
     public PrintWindow(string sheetPath)
     {
@@ -193,32 +193,62 @@ internal sealed class PrintWindow : Form
         var hasPrinter = printerList.SelectedItem is string;
         propertiesButton.Enabled = hasPrinter;
         printButton.Enabled = hasPrinter;
-        if (!hasPrinter) statusLabel.Text = "No Windows printers were found.";
-        else statusLabel.Text = "A4 · Portrait · Actual size";
+        configuredDocument?.Dispose();
+        configuredDocument = null;
+
+        if (!hasPrinter)
+        {
+            statusLabel.Text = "No Windows printers were found.";
+            return;
+        }
+
+        try
+        {
+            configuredDocument = CreatePrintDocument((string)printerList.SelectedItem!, (short)copies.Value);
+            statusLabel.Text = "A4 · Portrait · Actual size";
+        }
+        catch (Exception error)
+        {
+            propertiesButton.Enabled = false;
+            printButton.Enabled = false;
+            statusLabel.Text = error.Message;
+        }
     }
 
     private void OpenPrinterProperties()
     {
-        if (printerList.SelectedItem is not string printerName) return;
+        if (configuredDocument is null) return;
         try
         {
-            var startInfo = new ProcessStartInfo("rundll32.exe") { UseShellExecute = true };
-            startInfo.ArgumentList.Add("printui.dll,PrintUIEntry");
-            startInfo.ArgumentList.Add("/e");
-            startInfo.ArgumentList.Add("/n");
-            startInfo.ArgumentList.Add(printerName);
-            Process.Start(startInfo);
-            statusLabel.Text = "Close Printer settings before selecting Print.";
+            using var dialog = new PageSetupDialog
+            {
+                Document = configuredDocument,
+                AllowMargins = false,
+                AllowOrientation = false,
+                AllowPaper = false,
+                AllowPrinter = true,
+                EnableMetric = true,
+                ShowHelp = false,
+                ShowNetwork = false,
+            };
+
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+            // The standard dialog edits this PrintDocument's private DEVMODE. Unlike
+            // PrintUIEntry /e, it does not write the selected media/quality back to
+            // the Windows printer defaults used by Word, browsers, and other apps.
+            ApplyRequiredPageSettings(configuredDocument);
+            statusLabel.Text = "Job-only settings saved · A4 · Actual size";
         }
         catch (Exception error)
         {
-            MessageBox.Show($"Printer settings could not open.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"PhotoDesk job settings could not open.\n\n{error.Message}", "CJNET Print Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
     private void Print()
     {
-        if (printerList.SelectedItem is not string printerName) return;
+        if (configuredDocument is null) return;
         printButton.Enabled = false;
         propertiesButton.Enabled = false;
         statusLabel.Text = "Sending the A4 sheet to Windows…";
@@ -226,15 +256,23 @@ internal sealed class PrintWindow : Form
 
         try
         {
-            using var document = CreatePrintDocument(printerName, (short)copies.Value);
-            document.PrintPage += (_, eventArgs) =>
+            configuredDocument.PrinterSettings.Copies = (short)copies.Value;
+            PrintPageEventHandler renderPage = (_, eventArgs) =>
             {
                 var graphics = eventArgs.Graphics ?? throw new InvalidOperationException("Windows did not provide a printer drawing surface.");
                 NativePrintRenderer.Draw(graphics, sheetImage, eventArgs.PageSettings.HardMarginX, eventArgs.PageSettings.HardMarginY);
                 eventArgs.HasMorePages = false;
             };
-            document.Print();
-            Close();
+            configuredDocument.PrintPage += renderPage;
+            try
+            {
+                configuredDocument.Print();
+                Close();
+            }
+            finally
+            {
+                configuredDocument.PrintPage -= renderPage;
+            }
         }
         catch (Exception error)
         {
@@ -267,16 +305,32 @@ internal sealed class PrintWindow : Form
             OriginAtMargins = false,
             PrintController = new StandardPrintController(),
         };
+        ApplyRequiredPageSettings(document, a4);
+        return document;
+    }
+
+    private static void ApplyRequiredPageSettings(PrintDocument document, PaperSize? knownA4 = null)
+    {
+        var a4 = knownA4
+            ?? document.PrinterSettings.PaperSizes.Cast<PaperSize>().FirstOrDefault(size => size.Kind == PaperKind.A4)
+            ?? document.PrinterSettings.PaperSizes.Cast<PaperSize>().FirstOrDefault(size =>
+                Math.Abs(size.Width - 827) <= 2 && Math.Abs(size.Height - 1169) <= 2)
+            ?? throw new InvalidOperationException("The selected printer does not report an A4 paper size. Add A4 in Printer settings and try again.");
+
+        document.PrinterSettings.Duplex = Duplex.Simplex;
         document.DefaultPageSettings.PaperSize = a4;
         document.DefaultPageSettings.Landscape = false;
         document.DefaultPageSettings.Color = true;
         document.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
-        return document;
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) sheetImage.Dispose();
+        if (disposing)
+        {
+            configuredDocument?.Dispose();
+            sheetImage.Dispose();
+        }
         base.Dispose(disposing);
     }
 

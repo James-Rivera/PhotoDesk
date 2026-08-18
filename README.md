@@ -109,9 +109,9 @@ The recommended default is a medium-gray `0.5 pt` line so ordinary photo printer
 
 For a dedicated shop folder, run the optional Windows helper and complete the one-time Brave setting described in [PDF download organization](docs/PDF-DOWNLOADS.md).
 
-Before opening the Windows helper, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. The helper opens the selected printer's real Windows settings because paper media and photo quality remain driver-specific. Adobe Acrobat Reader and browser printing remain fallback paths for the exact PDF.
+Before opening the Windows helper, PhotoDesk shows the shop's Epson checklist: A4, Portrait, Actual Size / 100%, Epson Photo Quality Ink Jet paper, and Standard or High color quality. The helper opens job-local driver settings because paper media and photo quality remain driver-specific; it does not overwrite the Windows printer preferences inherited by Word or browsers. Adobe Acrobat Reader and browser printing remain fallback paths for the exact PDF.
 
-For the normal staff workflow, run `CJNET-Print-Helper-Setup.exe` once per workstation as described in [CJNET Windows Print Helper](docs/WINDOWS-PRINT-HELPER.md). Staff do not need VS Code or developer tools. PhotoDesk opens a native helper window with the A4 preview, a printer selector, copies defaulted to 1, direct Printer settings, and one clear Print button. The helper does not use Edge or WebView2. Browser printing and PDF download remain fallbacks.
+For the normal staff workflow, run `CJNET-Print-Helper-Setup.exe` once per workstation as described in [CJNET Windows Print Helper](docs/WINDOWS-PRINT-HELPER.md). Staff do not need VS Code or developer tools. PhotoDesk opens a native helper window with the A4 preview, a printer selector, copies defaulted to 1, job-only printer settings, and one clear Print button. The helper does not use Edge or WebView2. Browser printing and PDF download remain fallbacks.
 
 For the recommended one-choice shop workflow, see [Epson photo queue setup](docs/EPSON-PHOTO-QUEUE-SETUP.md).
 
