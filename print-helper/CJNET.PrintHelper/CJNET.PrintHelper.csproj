@@ -9,7 +9,7 @@
     <RootNamespace>CJNET.PrintHelper</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>CJNET.ico</ApplicationIcon>
-    <Version>0.4.0</Version>
+    <Version>0.4.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="CJNET.PrintHelper.SmokeTests" />

@@ -2,7 +2,7 @@
 
 The Print Helper lets Vercel-hosted PhotoDesk use the installed Windows printers without routing customer photos through another server. PhotoDesk keeps the exact point-based PDF for downloads and prepares a matching one-page A4 raster at 300 DPI for native printing.
 
-The helper uses Windows Forms for both preview and printing. It does not embed Edge or WebView2. Staff see the A4 sheet, choose any installed or shared printer, open **PhotoDesk job settings**, set copies, and select one clear **Print** button. Driver choices made there belong only to that PhotoDesk print job and do not replace the printer defaults used by Word, browsers, or other applications.
+The helper uses Windows Forms for both preview and printing. It does not embed Edge or WebView2. Staff see the A4 sheet, choose any installed or shared printer, open the selected printer driver's real Epson/Brother/etc. properties through **PhotoDesk job settings**, set copies, and select one clear **Print** button. Driver choices made there belong only to that PhotoDesk print job and do not replace the printer defaults used by Word, browsers, or other applications.
 
 ## Staff installation
 
@@ -19,10 +19,10 @@ Pairing is one-time for each deployed PhotoDesk origin and Windows browser profi
 1. Build the layout and select **Print**.
 2. Select **Open Windows print**.
 3. Confirm the one-page A4 preview and choose the installed/shared photo printer.
-4. Select **PhotoDesk job settings** and, inside the job-only Windows dialog, open the printer's settings to confirm the correct photo-paper media, Standard or High quality, Color, and one-sided printing. Select **OK** to keep those choices for this PhotoDesk job only.
+4. Select **PhotoDesk job settings**. The selected printer's real driver-properties modal opens directly; confirm the correct photo-paper media (for example **Epson Photo Quality Ink Jet**), Standard or High quality, Color, and one-sided printing. Select **OK** to keep those choices for this PhotoDesk job only.
 5. Leave copies at 1 unless the customer needs duplicate sheets, then select **Print**.
 
-PhotoDesk deliberately reapplies A4, portrait, actual physical page size, color, and one-sided output after the job settings dialog closes. Paper media and photo quality remain printer-driver settings, but they are stored in the helper's in-memory print document rather than the Windows printer-wide preferences.
+PhotoDesk deliberately reapplies A4, portrait, actual physical page size, color, and one-sided output after the driver-properties modal closes. Paper media, photo quality, and other driver-private options are copied into the helper's in-memory print document rather than the Windows printer-wide preferences.
 
 Do not open Windows **Printing preferences** to prepare an individual PhotoDesk job. That screen changes the defaults inherited by Word, browser PDF printing, and other software. Use the helper's **PhotoDesk job settings** button instead.
 

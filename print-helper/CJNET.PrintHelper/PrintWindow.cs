@@ -220,23 +220,10 @@ internal sealed class PrintWindow : Form
         if (configuredDocument is null) return;
         try
         {
-            using var dialog = new PageSetupDialog
-            {
-                Document = configuredDocument,
-                AllowMargins = false,
-                AllowOrientation = false,
-                AllowPaper = false,
-                AllowPrinter = true,
-                EnableMetric = true,
-                ShowHelp = false,
-                ShowNetwork = false,
-            };
+            if (!PrinterJobProperties.Show(this, configuredDocument)) return;
 
-            if (dialog.ShowDialog(this) != DialogResult.OK) return;
-
-            // The standard dialog edits this PrintDocument's private DEVMODE. Unlike
-            // PrintUIEntry /e, it does not write the selected media/quality back to
-            // the Windows printer defaults used by Word, browsers, and other apps.
+            // The driver edits this PrintDocument's private DEVMODE. It does not write
+            // media/quality choices to the defaults used by Word, browsers, or other apps.
             ApplyRequiredPageSettings(configuredDocument);
             statusLabel.Text = "Job-only settings saved · A4 · Actual size";
         }

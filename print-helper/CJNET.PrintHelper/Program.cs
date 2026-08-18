@@ -25,7 +25,7 @@ internal static class Program
 
 internal sealed class HelperContext : ApplicationContext
 {
-    internal const string Version = "0.3.0";
+    internal static readonly string Version = typeof(HelperContext).Assembly.GetName().Version?.ToString(3) ?? "unknown";
     internal const int Port = 17421;
     internal const int MaxPrintSheetBytes = 30 * 1024 * 1024;
 
