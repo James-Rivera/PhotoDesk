@@ -41,6 +41,7 @@ Always verify a new printer or driver with the calibration sheet before producti
 ## Security
 
 - The listener binds only to `127.0.0.1:17421`; other computers cannot reach it.
+- PhotoDesk pages served from loopback, HTTPS, or an RFC1918 private branch IP may pair. Public HTTP origins and arbitrary HTTP hostnames are rejected.
 - A code shown by the local tray application is required before an origin receives a random 256-bit token.
 - Tokens are bound to the exact website origin and stay on that Windows computer.
 - Print requests require the token, accept PNG signatures only, are limited to 30 MB, and must be exactly `2480 × 3508` pixels.

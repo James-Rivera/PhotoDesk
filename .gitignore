@@ -12,6 +12,7 @@
 /coverage
 /.dotnet-sdk/
 /.dotnet-cli-home/
+/.branch-runtime/
 /dotnet-install.ps1
 /.nsis-portable/
 /nsis-*.zip
@@ -40,3 +41,4 @@ print-helper/**/obj/
 print-helper/dist/
 print-helper/CJNET-Print-Helper-*.zip
 print-helper/CJNET-Print-Helper-Setup.exe
+/branch-server/dist/

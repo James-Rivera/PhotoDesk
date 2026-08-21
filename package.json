@@ -9,6 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:branch": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-branch-server.ps1",
+    "start:branch:localhost": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-branch-local.ps1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

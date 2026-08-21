@@ -18,10 +18,12 @@ const initialHelpState: PasswordHelpState = {
 
 export function LoginForm({
   configured,
+  localMode,
   nextPath,
   reasonMessage,
 }: {
   configured: boolean;
+  localMode: boolean;
   nextPath: string;
   reasonMessage: string | null;
 }) {
@@ -55,7 +57,7 @@ export function LoginForm({
         <form action={action}>
           <h2 className="text-[22px] font-bold">Sign in</h2>
           <p className="mt-2 text-[13px] text-[var(--ink-2)]">
-            Use the account given by corporate.
+            {localMode ? "Use this branch computer’s local staff account." : "Use the account given by corporate."}
           </p>
 
           {!configured && (
@@ -63,8 +65,7 @@ export function LoginForm({
               <strong className="block text-[var(--ink)]">
                 Setup required
               </strong>
-              Add the public Supabase URL and publishable key to{" "}
-              <code>.env.local</code>, then restart the app.
+              {localMode ? "Run the branch-local setup script, then restart PhotoDesk." : <>Add the public Supabase URL and publishable key to <code>.env.local</code>, then restart the app.</>}
             </div>
           )}
 
@@ -72,14 +73,13 @@ export function LoginForm({
 
           <div className="mt-7 space-y-[18px]">
             <label className="block">
-              <span className="mb-1.5 block font-bold">Email address</span>
+              <span className="mb-1.5 block font-bold">{localMode ? "Local staff username" : "Email address"}</span>
               <input
                 required
                 disabled={disabled}
                 name="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
+                type={localMode ? "text" : "email"}
+                autoComplete="username"
                 maxLength={254}
                 className="h-[42px] w-full rounded-lg border border-[var(--border)] bg-white px-3 disabled:opacity-60"
               />
@@ -88,13 +88,13 @@ export function LoginForm({
             <label className="block">
               <span className="mb-1.5 flex items-center justify-between gap-3">
                 <strong>Password</strong>
-                <button
+                {!localMode && <button
                   type="button"
                   onClick={() => setShowPasswordHelp(true)}
                   className="text-[12px] font-bold underline underline-offset-2"
                 >
                   Forgot password?
-                </button>
+                </button>}
               </span>
 
               <span className="relative block">
@@ -129,8 +129,7 @@ export function LoginForm({
           </button>
 
           <p className="mt-4 text-[12.5px] leading-5 text-[var(--ink-3)]">
-            There is no public registration. Accounts are managed by the shop
-            administrator.
+            {localMode ? "This sign-in stays on the branch computer and works without internet." : "There is no public registration. Accounts are managed by the shop administrator."}
           </p>
         </form>
       ) : (

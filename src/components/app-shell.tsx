@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ImageMinus, Images, LayoutTemplate, Wrench } from "lucide-react";
+import { HardDrive, ImageMinus, Images, LayoutTemplate, Wrench } from "lucide-react";
 import type { StaffProfile } from "@/lib/auth/staff";
 import { signOut } from "@/app/app/actions";
 import { SignOutButton } from "./sign-out-button";
 import { WorkingPhotoProvider } from "./working-photo-context";
 import { LibraryCreateForm } from "./library-create-form";
+import { DeploymentModeProvider } from "./deployment-mode";
 
 const navItems = [
   { href: "/app/template", label: "Template Builder", icon: LayoutTemplate },
@@ -23,7 +24,7 @@ const pageContext = {
   "/app/admin": ["Maintenance", "Admin-only health checks and backup tools"],
 } as const;
 
-export function AppShell({ children, profile }: { children: React.ReactNode; profile: StaffProfile }) {
+export function AppShell({ children, profile, branchLocal = false }: { children: React.ReactNode; profile: StaffProfile; branchLocal?: boolean }) {
   const pathname = usePathname();
   const contextKey = Object.keys(pageContext).find((key) => pathname === key || pathname.startsWith(`${key}/`)) as keyof typeof pageContext | undefined;
   const [title, subtitle] = contextKey ? pageContext[contextKey] : pageContext["/app/template"];
@@ -39,6 +40,8 @@ export function AppShell({ children, profile }: { children: React.ReactNode; pro
           {navItems.map((item) => {
             const active = pathname === item.href || (item.href === "/app/library" && pathname.startsWith("/app/library/"));
             const Icon = item.icon;
+            const unavailable = branchLocal && item.href !== "/app/template";
+            if (unavailable) return <span key={item.href} aria-disabled="true" title="Available in online PhotoDesk" className="flex h-10 shrink-0 cursor-not-allowed items-center gap-2.5 rounded-[9px] border border-transparent px-3 text-[13.5px] font-medium text-[var(--ink-3)] opacity-60"><Icon size={17} strokeWidth={1.9} aria-hidden="true" /><span>{item.label}</span></span>;
             return (
               <Link key={item.href} href={item.href} className={`flex h-10 shrink-0 items-center gap-2.5 rounded-[9px] border px-3 text-[13.5px] transition-colors ${active ? "border-[#eedf8a] bg-[var(--brand-tint)] font-bold" : "border-transparent font-medium hover:bg-[#faf7ef]"}`}>
                 <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
@@ -60,8 +63,8 @@ export function AppShell({ children, profile }: { children: React.ReactNode; pro
               </p>
             </div>
           </div>
-          {profile.role === "admin" && <Link href="/app/admin" className="mt-3 flex h-[36px] w-full items-center justify-center gap-2 rounded-lg border border-[#dfc846] bg-[var(--brand-tint)] font-bold"><Wrench size={14} /> Admin Maintenance</Link>}
-          <form action={signOut}><SignOutButton /></form>
+          {profile.role === "admin" && !branchLocal && <Link href="/app/admin" className="mt-3 flex h-[36px] w-full items-center justify-center gap-2 rounded-lg border border-[#dfc846] bg-[var(--brand-tint)] font-bold"><Wrench size={14} /> Admin Maintenance</Link>}
+          <form action={signOut}><SignOutButton local={branchLocal} /></form>
         </div>
       </aside>
 
@@ -70,9 +73,10 @@ export function AppShell({ children, profile }: { children: React.ReactNode; pro
           <strong className="text-[15px] tracking-[-0.01em]">{title}</strong>
           <span className="mx-3 h-[18px] w-px bg-[var(--border-soft)]" aria-hidden="true" />
           <span className="truncate text-[13px] text-[var(--ink-2)]">{subtitle}</span>
-          {pathname === "/app/library" && <div className="ml-auto pl-4"><LibraryCreateForm /></div>}
+          {branchLocal ? <span role="status" className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-[#a9d1a2] bg-[#eef6ec] px-2.5 py-1 text-[11px] font-bold text-[var(--ok)]"><HardDrive size={13} /> Branch-local · internet not required</span> : pathname === "/app/library" && <div className="ml-auto pl-4"><LibraryCreateForm /></div>}
         </header>
-        <WorkingPhotoProvider>{children}</WorkingPhotoProvider>
+        {branchLocal && <div className="border-b border-[#eadb87] bg-[#fffbea] px-5 py-2 text-[11.5px] leading-4 text-[var(--warn)]"><strong>Offline workstation mode:</strong> local photos, exact PDFs, downloads, and printing work normally. Customer Library and Remove Background require Online PhotoDesk.</div>}
+        <DeploymentModeProvider branchLocal={branchLocal}><WorkingPhotoProvider>{children}</WorkingPhotoProvider></DeploymentModeProvider>
       </div>
     </div>
   );

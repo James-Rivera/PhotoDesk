@@ -1,8 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicConfig } from "./config";
+import { isBranchLocalMode, LOCAL_AUTH_COOKIE, verifyBranchLocalToken } from "@/lib/auth/local";
 
 export async function updateSession(request: NextRequest) {
+  if (isBranchLocalMode()) {
+    if (!request.nextUrl.pathname.startsWith("/app")) return NextResponse.next({ request });
+    const authenticated = await verifyBranchLocalToken(request.cookies.get(LOCAL_AUTH_COOKIE)?.value);
+    if (!authenticated) return redirectToLogin(request, NextResponse.next({ request }), "session");
+    if (request.nextUrl.pathname !== "/app/template") {
+      const templateUrl = request.nextUrl.clone();
+      templateUrl.pathname = "/app/template";
+      templateUrl.search = "?mode=branch-local";
+      return NextResponse.redirect(templateUrl);
+    }
+    return NextResponse.next({ request });
+  }
   const config = getSupabasePublicConfig();
   if (!config) return protectUnconfiguredRequest(request);
 

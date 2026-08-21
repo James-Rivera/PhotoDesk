@@ -7,6 +7,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getSafeNextPath } from "@/lib/auth/redirects";
 import { clearAuthLimit, consumeAuthLimit, getClientAddress, retryMessage } from "@/lib/auth/rate-limit";
 import { sendPasswordHelpEmail } from "@/lib/auth/admin-email";
+import { branchLocalCookieOptions, clearBranchLocalLoginAttempts, consumeBranchLocalLoginAttempt, createBranchLocalToken, isBranchLocalMode, LOCAL_AUTH_COOKIE, verifyBranchLocalPassword } from "@/lib/auth/local";
+import { cookies } from "next/headers";
 
 export interface LoginState {
   message: string | null;
@@ -18,6 +20,23 @@ export interface PasswordHelpState {
 }
 
 export async function login(_: LoginState, formData: FormData): Promise<LoginState> {
+  if (isBranchLocalMode()) {
+    const username = String(formData.get("email") ?? "").trim().toLowerCase();
+    const password = String(formData.get("password") ?? "");
+    const nextPath = getSafeNextPath(formData.get("next"));
+    if (!username || !password) return { message: "Enter both the local staff username and password." };
+    const clientAddress = await getClientAddress();
+    const accountLimit = consumeBranchLocalLoginAttempt(`account:${username}`);
+    const addressLimit = consumeBranchLocalLoginAttempt(`address:${clientAddress}`);
+    if (!accountLimit.allowed || !addressLimit.allowed) return { message: retryMessage(Math.max(accountLimit.retryAfterSeconds, addressLimit.retryAfterSeconds)) };
+    if (!(await verifyBranchLocalPassword(username, password))) return { message: "The local staff username or password is incorrect." };
+    clearBranchLocalLoginAttempts(`account:${username}`);
+    clearBranchLocalLoginAttempts(`address:${clientAddress}`);
+    const cookieStore = await cookies();
+    cookieStore.set(LOCAL_AUTH_COOKIE, await createBranchLocalToken(), branchLocalCookieOptions);
+    revalidatePath("/", "layout");
+    redirect(nextPath);
+  }
   if (!isSupabaseConfigured()) return { message: "Supabase is not configured on this deployment yet." };
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -60,6 +79,7 @@ export async function login(_: LoginState, formData: FormData): Promise<LoginSta
 }
 
 export async function requestPasswordHelp(_: PasswordHelpState, formData: FormData): Promise<PasswordHelpState> {
+  if (isBranchLocalMode()) return { status: "error", message: "Ask the branch administrator to reset the local PhotoDesk password." };
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email || email.length > 254 || !email.includes("@")) {
     return { status: "error", message: "Enter the email address used for your staff account." };

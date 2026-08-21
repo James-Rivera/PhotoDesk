@@ -7,6 +7,7 @@ Run("rejects a non-PNG payload", RejectNonPng);
 Run("rejects the wrong raster dimensions", RejectWrongDimensions);
 Run("maps the full raster to a physical A4 page", RenderA4WithoutPrinter);
 Run("converts printer hard margins to millimetres", ValidateHardMarginConversion);
+Run("allows loopback and private branch origins only over HTTP", ValidateOriginPolicy);
 
 if (failures.Count > 0)
 {
@@ -15,7 +16,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine("5 native print simulation tests passed without a physical printer.");
+Console.WriteLine("6 native print simulation tests passed without a physical printer.");
 return 0;
 
 void Run(string name, Action test)
@@ -68,6 +69,15 @@ static void ValidateHardMarginConversion()
     var millimetres = NativePrintRenderer.HundredthsOfInchToMillimeters(25);
     if (Math.Abs(millimetres - 6.35f) > 0.0001f)
         throw new InvalidOperationException($"Expected 6.35 mm but got {millimetres} mm.");
+}
+
+static void ValidateOriginPolicy()
+{
+    if (!OriginPolicy.IsAllowed("http://127.0.0.1:3210")) throw new InvalidOperationException("Loopback origin was rejected.");
+    if (!OriginPolicy.IsAllowed("http://192.168.10.4:3210")) throw new InvalidOperationException("Private branch origin was rejected.");
+    if (!OriginPolicy.IsAllowed("http://10.0.0.8:3210")) throw new InvalidOperationException("Private 10/8 origin was rejected.");
+    if (OriginPolicy.IsAllowed("http://8.8.8.8:3210")) throw new InvalidOperationException("Public HTTP origin was allowed.");
+    if (OriginPolicy.IsAllowed("http://photodesk.example.com")) throw new InvalidOperationException("Arbitrary HTTP hostname was allowed.");
 }
 
 static Bitmap CreateSheet()

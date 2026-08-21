@@ -24,6 +24,7 @@ import { SavePhotoToLibraryDialog } from "@/components/save-photo-to-library-dia
 import { NativePrintDialog } from "@/components/native-print-dialog";
 import { buildPdfDownloadName } from "@/lib/pdf/download-name";
 import { getPrintHelperHealth, openNativePrintDialog, pairPrintHelper, PrintHelperPairingError, type PrintHelperHealth } from "@/lib/printing/print-helper";
+import { useBranchLocalMode } from "@/components/deployment-mode";
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -62,6 +63,7 @@ const DEFAULT_CUSTOM = { width: 4, height: 6, unit: "in" as PhysicalUnit };
 const DRAFT_SOURCE_KEY = "draft-photo-preview";
 
 export function PhotoPrintWorkspace({ active }: { active: boolean }) {
+  const branchLocal = useBranchLocalMode();
   const { confirm, toast } = useFeedback();
   const inputRef = useRef<HTMLInputElement>(null);
   const [jobs, setJobs] = useState<PhotoPrintJob[]>([]);
@@ -264,8 +266,8 @@ export function PhotoPrintWorkspace({ active }: { active: boolean }) {
       <aside className="border-b border-[var(--border-soft)] bg-white p-4 xl:min-h-0 xl:overflow-y-auto xl:border-r xl:border-b-0">
         <SectionLabel number="1" label="Add a photo" />
         <input ref={inputRef} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void acceptFile(file); event.target.value = ""; }} />
-        {!draft ? <button type="button" onClick={() => inputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (file) void acceptFile(file); }} className={`mt-2.5 grid min-h-[132px] w-full place-items-center rounded-[10px] border-[1.5px] border-dashed p-4 text-center ${dragging ? "border-[#e0cf6a] bg-[#fffae6]" : "border-[#d5cdb6] bg-[var(--surface-warm)]"}`}><span><span className="mx-auto grid size-9 place-items-center rounded-full bg-[var(--brand-tint)]"><Upload size={18} /></span><strong className="mt-2.5 block">Add a photo</strong><span className="mt-1 block text-[11.5px] text-[var(--ink-3)]">JPG, PNG, or WebP · up to 20 MB</span></span></button> : <DraftEditor draft={draft} previewFits={previewLayout.fits} previewOverflow={previewLayout.overflow.length} onDraft={setDraft} onCrop={() => setShowCrop(true)} onChoose={() => inputRef.current?.click()} onSave={() => setShowSaveDialog(true)} onApply={addOrUpdateDraft} onCancel={cancelDraft} />}
-        {!draft && <button type="button" onClick={() => setShowLibraryPicker(true)} className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] font-semibold"><Library size={15} /> Choose from Customer Library</button>}
+        {!draft ? <button type="button" onClick={() => inputRef.current?.click()} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); const file = event.dataTransfer.files[0]; if (file) void acceptFile(file); }} className={`mt-2.5 grid min-h-[132px] w-full place-items-center rounded-[10px] border-[1.5px] border-dashed p-4 text-center ${dragging ? "border-[#e0cf6a] bg-[#fffae6]" : "border-[#d5cdb6] bg-[var(--surface-warm)]"}`}><span><span className="mx-auto grid size-9 place-items-center rounded-full bg-[var(--brand-tint)]"><Upload size={18} /></span><strong className="mt-2.5 block">Add a photo</strong><span className="mt-1 block text-[11.5px] text-[var(--ink-3)]">JPG, PNG, or WebP · up to 20 MB</span></span></button> : <DraftEditor draft={draft} libraryAvailable={!branchLocal} previewFits={previewLayout.fits} previewOverflow={previewLayout.overflow.length} onDraft={setDraft} onCrop={() => setShowCrop(true)} onChoose={() => inputRef.current?.click()} onSave={() => setShowSaveDialog(true)} onApply={addOrUpdateDraft} onCancel={cancelDraft} />}
+        {!draft && !branchLocal && <button type="button" onClick={() => setShowLibraryPicker(true)} className="mt-2.5 flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] font-semibold"><Library size={15} /> Choose from Customer Library</button>}
 
         <div className="mt-5"><SectionLabel number="2" label="Photos on this sheet" /></div>
         {jobs.length ? <div className="mt-2.5 space-y-2">{jobs.map((job) => <JobCard key={job.id} job={job} overflow={layout.overflow.some((item) => item.sourceKey === job.id)} onEdit={() => editJob(job)} onRemove={() => void removeJob(job)} />)}</div> : <div className="mt-2.5 rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface-warm)] p-4 text-center text-[12px] text-[var(--ink-3)]">No photos on the sheet yet.</div>}
@@ -286,7 +288,7 @@ export function PhotoPrintWorkspace({ active }: { active: boolean }) {
   </div>;
 }
 
-function DraftEditor({ draft, previewFits, previewOverflow, onDraft, onCrop, onChoose, onSave, onApply, onCancel }: { draft: DraftState; previewFits: boolean; previewOverflow: number; onDraft: (draft: DraftState) => void; onCrop: () => void; onChoose: () => void; onSave: () => void; onApply: () => void; onCancel: () => void }) {
+function DraftEditor({ draft, libraryAvailable, previewFits, previewOverflow, onDraft, onCrop, onChoose, onSave, onApply, onCancel }: { draft: DraftState; libraryAvailable: boolean; previewFits: boolean; previewOverflow: number; onDraft: (draft: DraftState) => void; onCrop: () => void; onChoose: () => void; onSave: () => void; onApply: () => void; onCancel: () => void }) {
   const size = outputSize(draft);
   return <div className="mt-2.5 rounded-[10px] border border-[#d5c56f] bg-[#fffdf4] p-3">
     <div className="flex items-center gap-2.5"><img src={draft.photo.url} alt="Selected photo" className="size-12 rounded-[7px] object-cover" /><div className="min-w-0 flex-1"><strong className="block truncate">{draft.photo.customerName || draft.photo.file.name}</strong><span className="text-[10.5px] text-[var(--ink-3)]">{draft.photo.width} × {draft.photo.height} px</span></div>{!draft.editingId && <button type="button" onClick={onChoose} className="grid size-8 place-items-center rounded-md border border-[var(--border)] bg-white" title="Choose another photo"><Upload size={14} /></button>}</div>
@@ -297,7 +299,7 @@ function DraftEditor({ draft, previewFits, previewOverflow, onDraft, onCrop, onC
     {isLowResolution(draft) && <p className="mt-2 flex items-start gap-1.5 rounded-md bg-[#fff4dc] p-2 text-[11px] leading-4 text-[#7a4b00]"><AlertTriangle size={13} className="mt-0.5 shrink-0" /> This photo may look soft at this print size. Check the preview before printing.</p>}
     <div className={`mt-2 rounded-md border p-2 text-[11px] leading-4 ${previewFits ? "border-[#eedf8a] bg-[#fffcea] text-[var(--ink-2)]" : "border-[#efc0b2] bg-[#fdf0ec] text-[#8c2410]"}`}>{previewFits ? <><strong className="text-[var(--ink)]">Live A4 preview</strong><span> · The yellow dashed photo is not added yet.</span></> : <><strong>{previewOverflow} {previewOverflow === 1 ? "print does" : "prints do"} not fit on A4.</strong><span> Reduce the copies or choose a smaller size.</span></>}</div>
     <button type="button" onClick={onCrop} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--ink)] bg-white font-semibold"><ImageIcon size={14} /> Adjust crop</button>
-    {!draft.photo.fromLibrary && <button type="button" onClick={onSave} className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white font-semibold"><Library size={14} /> Save photo to Library</button>}
+    {libraryAvailable && !draft.photo.fromLibrary && <button type="button" onClick={onSave} className="mt-2 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-white font-semibold"><Library size={14} /> Save photo to Library</button>}
     <div className="mt-3 flex gap-2"><button type="button" onClick={onCancel} className="h-10 flex-1 rounded-lg font-semibold">Cancel</button><button type="button" disabled={!previewFits} onClick={onApply} className="flex h-10 flex-[1.7] items-center justify-center gap-2 rounded-lg bg-[var(--brand)] font-bold disabled:cursor-not-allowed disabled:bg-[var(--brand-off)] disabled:text-[#9a9484]"><Check size={15} /> {draft.editingId ? "Update A4 sheet" : "Add to A4 sheet"}</button></div>
   </div>;
 }

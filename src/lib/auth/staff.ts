@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isBranchLocalMode, LOCAL_AUTH_COOKIE, verifyBranchLocalToken } from "./local";
+import { cookies } from "next/headers";
 
 export type StaffRole = "admin" | "staff";
 
@@ -19,6 +21,11 @@ export type StaffAuthorization =
   | { status: "active"; profile: StaffProfile };
 
 export async function getCurrentStaff(): Promise<StaffAuthorization> {
+  if (isBranchLocalMode()) {
+    const cookieStore = await cookies();
+    const profile = await verifyBranchLocalToken(cookieStore.get(LOCAL_AUTH_COOKIE)?.value);
+    return profile ? { status: "active", profile } : { status: "unauthenticated" };
+  }
   if (!isSupabaseConfigured()) return { status: "unconfigured" };
   const supabase = await createClient();
   const { data: claimData, error: claimError } = await supabase.auth.getClaims();

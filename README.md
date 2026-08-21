@@ -254,6 +254,12 @@ The application is designed for Vercel:
 
 Apply the database migration and create the first active administrator before staff use. See [Supabase authentication setup](docs/SUPABASE-AUTH-SETUP.md).
 
+### Branch-local offline deployment
+
+Each shop branch can run one private server on an always-on Windows workstation. The host opens `http://localhost:3210`; other PCs use the host's private IPv4 address. This mode starts and authenticates without internet and keeps the core local-photo → layout → exact PDF → print workflow available. It deliberately disables Customer Library, administrator maintenance, and remote background removal because those services require Supabase or the homelab gateway.
+
+Distribute the generated `branch-server/dist/CJNET-PhotoDesk-Branch-Server.zip`, extract it on the host, then double-click `Install-CJNET-PhotoDesk-Branch-Server.bat`. It downloads and verifies its private portable runtime, configures unique credentials, builds the app, installs its background startup task, and adds a Private/LocalSubnet-only Windows Firewall rule. A system-wide Node.js installation is not required. Never port-forward the server or expose it publicly. See [Branch-local offline PhotoDesk](docs/BRANCH-LOCAL-OFFLINE.md) for host/client setup, outage testing, updates, and recovery.
+
 ## Fonts and offline behavior
 
 Satoshi 400, 500, and 700 are loaded from Fontshare's official webfont API because its license restricts independently serving or redistributing the font binaries. See [`docs/FONT-LICENSES.md`](docs/FONT-LICENSES.md).
@@ -268,6 +274,7 @@ If Fontshare is unavailable, the interface falls back to Segoe UI and Arial. The
 - The admin JSON export is metadata only; complete database, Auth, and private Storage recovery remains an operator procedure.
 - The printable calibration page is still pending.
 - Optional PWA/offline installation is still pending.
+- Branch-local mode keeps the core print workflow available offline, but it does not mirror or queue private Customer Library data between branches.
 
 See [Incomplete work](docs/INCOMPLETE-WORK.md) for the complete prioritized list.
 

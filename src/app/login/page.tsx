@@ -4,6 +4,7 @@ import { LoginForm } from "@/components/login-form";
 import { getCurrentStaff } from "@/lib/auth/staff";
 import { getSafeNextPath } from "@/lib/auth/redirects";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isBranchLocalConfigured, isBranchLocalMode } from "@/lib/auth/local";
 
 const reasonMessages: Record<string, string> = {
   session: "Your session expired. Sign in again to continue.",
@@ -13,7 +14,8 @@ const reasonMessages: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; reason?: string }> }) {
   const params = await searchParams;
-  const configured = isSupabaseConfigured();
+  const localMode = isBranchLocalMode();
+  const configured = localMode ? isBranchLocalConfigured() : isSupabaseConfigured();
   const nextPath = getSafeNextPath(params.next);
   if (configured) {
     const staff = await getCurrentStaff();
@@ -31,7 +33,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="grid place-items-center p-8 lg:p-12">
-        <LoginForm configured={configured} nextPath={nextPath} reasonMessage={params.reason ? reasonMessages[params.reason] ?? null : null} />
+        <LoginForm configured={configured} localMode={localMode} nextPath={nextPath} reasonMessage={params.reason ? reasonMessages[params.reason] ?? null : null} />
       </section>
     </main>
   );

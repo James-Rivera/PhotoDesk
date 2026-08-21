@@ -130,7 +130,7 @@ internal sealed class HelperContext : ApplicationContext
 
     private async Task PairAsync(HttpListenerContext context, string? origin)
     {
-        if (!IsAllowedOrigin(origin))
+        if (!OriginPolicy.IsAllowed(origin))
         {
             await WriteError(context.Response, 403, "This website is not allowed to pair with CJNET Print Helper.");
             return;
@@ -214,16 +214,9 @@ internal sealed class HelperContext : ApplicationContext
             Encoding.UTF8.GetBytes(expected),
             Encoding.UTF8.GetBytes(request.Headers["X-CJNET-Print-Token"] ?? string.Empty));
 
-    private static bool IsAllowedOrigin(string? origin)
-    {
-        if (origin is null || !Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-        if (uri.Scheme == Uri.UriSchemeHttps) return true;
-        return uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback;
-    }
-
     private static void AddCorsHeaders(HttpListenerResponse response, string? origin)
     {
-        if (!IsAllowedOrigin(origin)) return;
+        if (!OriginPolicy.IsAllowed(origin)) return;
         response.Headers["Access-Control-Allow-Origin"] = origin;
         response.Headers["Vary"] = "Origin";
         response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
